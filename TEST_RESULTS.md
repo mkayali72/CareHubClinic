@@ -39,3 +39,13 @@ Test 16: PASS — Verified soft deletion creates an AuditLog entry with actor an
 Test 19: PASS — Searched application code and found no true DELETE statement or session.delete/db.delete path for soft-deletable models.
 Test 20: PASS — Verified create, update, and delete actions each create the expected AuditLog action.
 Test 21: PASS — Verified AuditLog has no mutation route and the immutable mutation guard rejects every role.
+
+## Patient Demographics
+
+Test 1: PASS — Verified all five allowed staff roles can access the clinic-scoped patient list.
+Test 2: PASS — Verified billing_clerk API projections include name, contact, insurance, and date of birth while omitting emergency contact and clinical fields.
+Test 3: PASS — Verified htmx create and edit submissions persist structured allergy and medication objects.
+Test 4: PASS — Verified billing_clerk cannot write sensitive fields even when those fields are posted directly.
+Test 5: PASS — Verified the Billing tab appears only when Clinic.billing_module_enabled is true and the future-module placeholder renders.
+Test 6: PASS — Verified patient API ordering is newest-first and patient data is clinic-scoped.
+Test 7: PASS — Verified only clinic_admin can soft-delete a patient, the delete is audited, the row is retained, and active list/API results exclude it.

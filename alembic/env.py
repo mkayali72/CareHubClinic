@@ -1,7 +1,7 @@
-"""Alembic environment configuration for the future application schema.
+"""Alembic environment configuration for the application schema.
 
-The migration tool is wired to the same DATABASE_URL used by the app. The
-metadata target remains empty until the domain schema is approved.
+The migration tool is wired to the same DATABASE_URL used by the app and the
+metadata target imports every model through app.models.
 """
 
 from logging.config import fileConfig
@@ -54,9 +54,8 @@ def run_migrations_online() -> None:
     """Run migrations using an engine created from Alembic configuration.
 
     Side effects:
-        Opens a database connection and applies any migration revisions found
-        in the Alembic versions directory. There are intentionally no revisions
-        in the initial scaffold.
+        Opens a database connection and applies migration revisions found in
+        the Alembic versions directory.
     """
 
     connectable = engine_from_config(

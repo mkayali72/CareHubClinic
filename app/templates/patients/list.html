@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="space-y-6">
+    <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+      <div>
+        <p class="text-sm font-semibold text-indigo-600">Patient demographics</p>
+        <h2 class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Patients</h2>
+        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+          Clinic-scoped records are ordered newest first. Structured allergies and medication entries are kept separate from free-text notes.
+        </p>
+      </div>
+      <button
+        class="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-100"
+        type="button"
+        hx-get="/patients/new"
+        hx-target="#patient-form-container"
+        hx-swap="outerHTML"
+      >
+        Add patient
+      </button>
+    </div>
+
+    {% if not can_view_sensitive %}
+      <div class="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm leading-6 text-amber-900">
+        Billing view shows demographic, contact, and insurance information only. Clinical fields are excluded by the API.
+      </div>
+    {% endif %}
+
+    <div id="patient-form-container"></div>
+
+    <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div class="border-b border-slate-100 px-6 py-5">
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <h3 class="font-semibold text-slate-950">Patient directory</h3>
+            <p class="mt-1 text-sm text-slate-500">Open a record to view its Summary and future clinical tabs.</p>
+          </div>
+          <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">{{ patients|length }} record{% if patients|length != 1 %}s{% endif %}</span>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-left text-sm">
+          <thead class="bg-slate-50 text-xs uppercase tracking-[0.14em] text-slate-400">
+            <tr>
+              <th class="px-6 py-4 font-semibold">Patient</th>
+              <th class="px-6 py-4 font-semibold">Date of birth</th>
+              <th class="px-6 py-4 font-semibold">Contact</th>
+              <th class="px-6 py-4 font-semibold">Insurance</th>
+              {% if can_view_sensitive %}
+                <th class="px-6 py-4 font-semibold">Allergies</th>
+                <th class="px-6 py-4 font-semibold">Medications</th>
+                <th class="px-6 py-4 font-semibold">Contraception</th>
+              {% endif %}
+              <th class="px-6 py-4 font-semibold"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody
+            id="patient-list"
+            class="divide-y divide-slate-100"
+            hx-get="/patients/rows"
+            hx-trigger="patientsChanged from:body"
+            hx-target="#patient-list"
+            hx-swap="innerHTML"
+          >
+            {% include "patients/partials/rows.html" %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+{% endblock %}

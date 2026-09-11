@@ -1,0 +1,35 @@
+{% if patients %}
+  {% for patient in patients %}
+    <tr id="patient-row-{{ patient.id }}" class="transition hover:bg-slate-50">
+      <td class="whitespace-nowrap px-6 py-4">
+        <a class="font-semibold text-indigo-700 hover:text-indigo-900" href="/patients/{{ patient.id }}">{{ patient.name }}</a>
+        <p class="mt-1 text-xs text-slate-400">Patient #{{ patient.id }}</p>
+      </td>
+      <td class="whitespace-nowrap px-6 py-4 text-slate-600">{{ patient.date_of_birth.strftime("%b %-d, %Y") }}</td>
+      <td class="min-w-48 px-6 py-4 text-slate-600">
+        <p>{{ patient.contact_info.get("phone", "—") }}</p>
+        {% if patient.contact_info.get("email") %}<p class="mt-1 text-xs text-slate-400">{{ patient.contact_info.get("email") }}</p>{% endif %}
+      </td>
+      <td class="min-w-40 px-6 py-4 text-slate-600">{{ patient.insurance_info.get("provider", "Self-pay / not recorded") }}</td>
+      {% if can_view_sensitive %}
+        <td class="px-6 py-4 text-slate-600">{{ patient.allergies|length }}</td>
+        <td class="px-6 py-4 text-slate-600">{{ patient.current_medications|length }}</td>
+        <td class="px-6 py-4 text-slate-600">{{ patient.contraception_method or "Not recorded" }}</td>
+      {% endif %}
+      <td class="whitespace-nowrap px-6 py-4 text-right">
+        <a class="text-sm font-semibold text-slate-500 hover:text-indigo-700" href="/patients/{{ patient.id }}">Open</a>
+        {% if can_delete %}
+          <form class="ml-3 inline" method="post" action="/patients/{{ patient.id }}/delete" hx-post="/patients/{{ patient.id }}/delete" hx-target="closest tr" hx-swap="outerHTML" hx-confirm="Soft-delete this patient record?">
+            <button class="text-sm font-semibold text-rose-600 hover:text-rose-800" type="submit">Delete</button>
+          </form>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+{% else %}
+  <tr>
+    <td class="px-6 py-14 text-center text-sm text-slate-500" colspan="{% if can_view_sensitive %}8{% else %}5{% endif %}">
+      No patients have been added to this clinic yet.
+    </td>
+  </tr>
+{% endif %}

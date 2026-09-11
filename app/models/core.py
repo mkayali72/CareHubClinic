@@ -12,6 +12,7 @@ from typing import Any
 
 from sqlalchemy import (
     Boolean,
+    Date,
     DateTime,
     Enum as SqlEnum,
     ForeignKey,
@@ -224,9 +225,9 @@ class Patient(SoftDeleteMixin, Base):
 class User(SoftDeleteMixin, Base):
     """Represent a staff account that can access one clinic deployment.
 
-    A User belongs to a Clinic and has exactly one UserRole. Passwords are
-    stored only as Argon2 hashes by the authentication service; this model
-    never stores a plaintext password.
+    A User belongs to a Clinic and has one assigned UserRole or no role while
+    awaiting assignment. Passwords are stored only as Argon2 hashes by the
+    authentication service; this model never stores a plaintext password.
 
     Fields:
         id: Internal staff account identifier.

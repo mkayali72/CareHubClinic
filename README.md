@@ -1,9 +1,10 @@
 # OB/GYN Clinic Management App
 
 This repository contains the portable foundation for a web application that
-will support OB/GYN clinic operations. It includes foundational tenancy,
-authentication, auditing, and soft-delete infrastructure, but intentionally
-stops before clinical data models such as patients and visits.
+supports OB/GYN clinic operations. It includes foundational tenancy,
+authentication, auditing, soft-delete infrastructure, and the Patient
+Demographics module. Future clinical workflows such as visits, labs, and
+prescriptions remain intentionally scoped for later modules.
 
 ## Stack
 
@@ -28,15 +29,15 @@ app/
   config.py             Environment-backed settings
   database.py           SQLAlchemy engine, ORM sessions, and soft-delete filter
   main.py               FastAPI application factory and entry point
-  models/               Foundational Clinic, User, AuditLog, and mixins
-  routes/               Health, authentication, and server-rendered page routers
+  models/               Clinic, Patient, User, AuditLog, and mixins
+  routes/               Health, authentication, patient, and page routers
   schemas/              Reserved for future request/response schemas
   services/             Authentication and audit/soft-delete business logic
   static/               CSS and future static assets
-  templates/            Login, welcome, and shared sidebar shell
+  templates/            Login, patient views/forms, welcome, and shared shell
 alembic/
   env.py                Migration environment wired to DATABASE_URL
-  versions/             Foundational schema migration
+  versions/             Foundational, auth-security, and patient migrations
 docker-compose.yml      Portable app + PostgreSQL development environment
 Dockerfile              Container image for the FastAPI app
 requirements.txt        Pinned Python dependencies
@@ -96,7 +97,7 @@ postgresql+psycopg://clinic:clinic@localhost:5432/obgyn
 
 ## Data Model
 
-The first migration creates only foundational, non-clinical tables:
+The migrations create the following foundational and patient tables:
 
 - **Clinic** represents one tenant/customer and stores its name, branding
   reference, creation timestamp, extensible JSON settings, and the explicit
@@ -106,6 +107,11 @@ The first migration creates only foundational, non-clinical tables:
   `physician`, `nurse_ma`, `front_desk`, `billing_clerk`, or `clinic_admin`.
 - **AuditLog** is a generic, immutable lifecycle log that records the actor,
   action, entity type, entity ID, timestamp, and JSON details/diff.
+- **Patient** is a clinic-scoped soft-deletable demographic record with
+  structured contact, insurance, emergency contact, allergy, and medication
+  JSON data plus a standing contraception field. Patient API responses are
+  projected by role; `billing_clerk` receives only name, date of birth,
+  contact, and insurance information.
 - **SoftDeleteMixin** adds `deleted_at` and `deleted_by_user_id`. SQLAlchemy
   SELECT statements exclude soft-deleted rows by default; callers must
   explicitly opt in with `include_deleted=True` to inspect them.
@@ -124,13 +130,25 @@ authentication dependency and displays the signed-in user's name and role.
 `/logout` clears the session. The reusable `require_roles(...)` dependency is
 available for every future route that needs role-based access control.
 
+## Patient Demographics
+
+The `/patients` workspace is visible to `physician`, `nurse_ma`, `front_desk`,
+`billing_clerk`, and `clinic_admin`. It is ordered most-recent-first and
+supports htmx create/edit forms without full-page form submissions. Allergies
+and current medications are stored as structured lists of objects rather than
+free-text fields.
+
+Patient detail pages include Summary, Visit History, Labs, and Prescriptions
+tabs. A Billing tab is rendered only when the owning Clinic has
+`billing_module_enabled=True`; the tab currently shows an empty placeholder.
+Only `clinic_admin` can soft-delete a patient. Deletion writes an AuditLog row,
+retains the database record, and removes it from normal patient queries.
+
 ## Clinical schema sequencing
 
-Clinical tables have not been created yet. This is deliberate: the clinical
-domain requirements need to be agreed on before adding patients, visits, labs,
-prescriptions, billing records, or other operational entities. Alembic is
-configured and the foundational migration is already in place for the four
-non-clinical building blocks above.
+Visit, lab, prescription, and billing tables have not been created yet. This
+is deliberate: those workflows need their own domain requirements. Alembic is
+configured and the Patient migration is already in place.
 
 ## Development documentation
 

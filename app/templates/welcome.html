@@ -7,8 +7,8 @@
       Welcome, {{ user.full_name }} ({{ user.role.value if user.role else "unassigned" }})
     </h2>
     <p class="mt-4 max-w-2xl text-base leading-7 text-slate-600">
-      Your session is active. Clinic modules will be added after the foundational
-      data model and access rules are extended.
+      Your session is active. Use Patients to manage clinic-scoped demographic
+      records with role-aware clinical visibility.
     </p>
     <form class="mt-8" method="post" action="/logout" hx-post="/logout">
       <button class="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50" type="submit">
