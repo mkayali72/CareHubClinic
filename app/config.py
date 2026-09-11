@@ -29,6 +29,7 @@ class Settings:
     database_url: str
     host: str
     port: int
+    session_secret: str
 
 
 def normalize_database_url(database_url: str) -> str:
@@ -82,6 +83,10 @@ def get_settings() -> Settings:
         database_url=normalize_database_url(database_url),
         host=os.getenv("HOST", "0.0.0.0"),
         port=port,
+        session_secret=os.getenv(
+            "SESSION_SECRET",
+            "development-only-change-this-session-secret",
+        ),
     )
 
 

@@ -1,8 +1,8 @@
 # OB/GYN Clinic Management App
 
-Portable FastAPI scaffold for an OB/GYN clinic management app. The current
-release is intentionally limited to the server-rendered application shell,
-PostgreSQL connectivity, and migration tooling.
+Portable FastAPI foundation for an OB/GYN clinic management app. The current
+release includes foundational tenancy, staff authentication, auditing, and
+soft-delete infrastructure while intentionally stopping before clinical data.
 
 ## Run & Operate
 
@@ -27,32 +27,34 @@ PostgreSQL connectivity, and migration tooling.
 ## Where things live
 
 - `app/` — FastAPI application, server-rendered routes, templates, static CSS, and reserved domain folders
-- `alembic/` — migration configuration with no revisions yet
+- `alembic/` — migration configuration and the foundational schema revision
 - `docker-compose.yml` — portable `app` and `db` services for Docker Desktop
 - `README.md` — setup, portability, and schema sequencing documentation
 
 ## Architecture decisions
 
 - The app uses a standard `DATABASE_URL` and normalizes generic PostgreSQL URLs to the installed psycopg 3 driver.
-- The first step deliberately has no database models or migrations; domain schema design is a separate later step.
+- Foundational models cover Clinic, User, AuditLog, and reusable soft deletion; clinical entities remain a separate later step.
+- Sessions use signed cookies and Argon2 hashes; role checks and destructive-action authorization are enforced in Python services/dependencies.
 - The preview and Docker Compose both run the same FastAPI entry point.
 
 ## Product
 
-The current product surface is an empty clinic operations shell with an
-Overview page, sidebar navigation placeholder, PostgreSQL-backed `/health`
-probe, and an Alembic setup ready for the future clinic schema.
+The current product surface includes a signed-session login flow, a protected
+welcome page, the clinic operations shell, PostgreSQL-backed `/health`, and
+foundational audit/soft-delete infrastructure.
 
 ## User preferences
 
 The user requires exactly two services (`app` and `db`), no frontend build
-system, no Replit-specific dependencies, and no clinical data models until the
-schema requirements are provided.
+system, no Replit-specific dependencies, and no clinical data models until
+those requirements are provided.
 
 ## Gotchas
 
 - Keep `DATABASE_URL` portable and standard; do not replace it with a platform-specific database API.
-- Do not generate Alembic revisions until the clinical schema is approved.
+- Clinical models must reuse SoftDeleteMixin and destructive actions must be
+  authorized in the service layer by clinic_admin.
 
 ## Pointers
 

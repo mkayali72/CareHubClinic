@@ -2,9 +2,10 @@
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import settings
-from app.routes import health, pages
+from app.routes import auth, health, pages
 
 
 def create_app() -> FastAPI:
@@ -22,8 +23,15 @@ def create_app() -> FastAPI:
         description="Portable starter application for OB/GYN clinic operations.",
         version="0.1.0",
     )
+    application.add_middleware(
+        SessionMiddleware,
+        secret_key=settings.session_secret,
+        same_site="lax",
+        https_only=settings.app_env == "production",
+    )
     application.mount("/static", StaticFiles(directory="app/static"), name="static")
     application.include_router(health.router)
+    application.include_router(auth.router)
     application.include_router(pages.router)
     return application
 

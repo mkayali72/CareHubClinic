@@ -1,32 +1,59 @@
 """Server-rendered page routes for the initial application shell."""
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.templating import Jinja2Templates
-from starlette.responses import Response
+from starlette.responses import RedirectResponse, Response
 
 from app.config import settings
+from app.services.auth import get_current_user, require_authenticated_user
+from app.models import User
 
 router = APIRouter(tags=["pages"])
 templates = Jinja2Templates(directory="app/templates")
 
 
 @router.get("/")
-def dashboard(request: Request) -> Response:
-    """Render the empty clinic dashboard shell.
+def dashboard(
+    request: Request,
+    current_user: User | None = Depends(get_current_user),
+) -> Response:
+    """Route the root URL to login or the authenticated landing page.
 
     Args:
         request: Incoming request used by Starlette's template renderer.
 
     Returns:
-        A Jinja2 TemplateResponse containing the sidebar layout and placeholder
-        dashboard content.
+        A redirect to /login for anonymous visitors or /welcome for users with
+        a valid session.
+    """
+
+    return RedirectResponse(
+        url="/welcome" if current_user is not None else "/login",
+        status_code=303,
+    )
+
+
+@router.get("/welcome")
+def welcome(
+    request: Request,
+    current_user: User = Depends(require_authenticated_user),
+) -> Response:
+    """Render the minimal authenticated landing page.
+
+    Args:
+        request: Incoming browser request.
+        current_user: Authenticated staff user required by the dependency.
+
+    Returns:
+        A Jinja2 response showing the user's name and role.
     """
 
     return templates.TemplateResponse(
         request=request,
-        name="dashboard.html",
+        name="welcome.html",
         context={
             "app_name": settings.app_name,
-            "page_title": "Overview",
+            "page_title": "Welcome",
+            "user": current_user,
         },
     )
