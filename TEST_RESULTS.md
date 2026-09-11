@@ -75,3 +75,4 @@ Prompt 3.T Test 16: PASS — Full regression run retained soft-delete audit cove
 Prompt 3.T Test 19: PASS — Full regression run retained no-hard-delete implementation coverage.
 Prompt 3.T Test 20: PASS — Full regression run retained create/update/delete audit coverage.
 Prompt 3.T Test 21: PASS — Full regression run retained immutable audit-log protection coverage.
+Full regression suite: PASS — `python -m pytest -q` completed with 41 passed and 3 existing dependency deprecation warnings.

@@ -1,1 +1,2 @@
 - [PostgreSQL URL portability](postgresql-url-portability.md) — normalize generic PostgreSQL URLs when using psycopg 3.
+- [Patient role visibility](patient-role-visibility.md) — front desk and billing receive demographic-only projections; clinical roles receive sensitive fields.

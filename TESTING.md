@@ -62,12 +62,13 @@ migrations before testing:
 alembic upgrade head
 ```
 
-- [ ] Sign in as `physician`, `nurse_ma`, `front_desk`, and `clinic_admin`;
-      confirm `/patients` is visible and the patient table shows name, date of
-      birth, contact, insurance, allergies, medications, and contraception.
-- [ ] Sign in as `billing_clerk`; confirm `/patients` is visible but allergies,
-      current medications, contraception, and emergency contact details are not
-      present in the page or `/api/patients` and `/api/patients/{id}` responses.
+- [ ] Sign in as `physician`, `nurse_ma`, and `clinic_admin`; confirm
+      `/patients` is visible and the patient table/detail shows the clinical
+      fields allowed for those roles.
+- [ ] Sign in as `front_desk` and `billing_clerk`; confirm `/patients` is
+      visible but allergies, current medications, contraception, and emergency
+      contact details are not present in the page or `/api/patients` and
+      `/api/patients/{id}` responses.
 - [ ] As a billing clerk, submit a crafted patient form containing allergy,
       medication, or contraception fields; confirm the API layer ignores those
       fields rather than relying only on template hiding.
@@ -84,3 +85,13 @@ alembic upgrade head
       AuditLog row, sets `deleted_at` and `deleted_by_user_id`, removes the
       patient from normal list/API results, and retains it with
       `include_deleted=True`.
+
+## 2026-09-11 — Prompt 4.T patient edge cases
+
+- [ ] Confirm the product decision for duplicate detection. The current
+      implementation intentionally has no duplicate-detection rule and accepts
+      similar patient records; any future flag/block behavior should replace
+      the corresponding automated expectation.
+- [ ] For a deleted patient, use the administrative restore workflow backed by
+      `restore_record`, then confirm the record returns to every role's list and
+      retains its clinical data.

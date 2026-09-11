@@ -249,7 +249,7 @@ def test_patient_create_and_edit_forms_use_structured_entries(
 ) -> None:
     """Verify htmx forms create and update structured patient data."""
 
-    login_as(client, seeded_users[UserRole.FRONT_DESK])
+    login_as(client, seeded_users[UserRole.NURSE_MA])
     form_data = {
         "name": "Lina Ali",
         "date_of_birth": "1988-02-03",
@@ -548,7 +548,10 @@ def test_patient_delete_retains_row_and_audit_links_without_orphaned_state(
     patient_id = patient.id
     login_as(client, seeded_users[UserRole.CLINIC_ADMIN])
 
-    response = client.post(f"/patients/{patient_id}/delete")
+    response = client.post(
+        f"/patients/{patient_id}/delete",
+        follow_redirects=False,
+    )
 
     assert response.status_code == 303
     db_session.expire_all()

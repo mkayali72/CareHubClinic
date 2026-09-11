@@ -26,10 +26,14 @@ def can_view_clinical_patient_fields(user: User) -> bool:
         user: Authenticated staff user.
 
     Returns:
-        True for every patient role except billing_clerk.
+        True for physician, nurse_ma, and clinic_admin users.
     """
 
-    return user.role is not UserRole.BILLING_CLERK
+    return user.role in {
+        UserRole.PHYSICIAN,
+        UserRole.NURSE_MA,
+        UserRole.CLINIC_ADMIN,
+    }
 
 
 def normalize_structured_items(

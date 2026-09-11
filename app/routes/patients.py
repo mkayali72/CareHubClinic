@@ -189,6 +189,7 @@ def _detail_context(
         "user": current_user,
         "active_tab": active_tab,
         "show_form": show_form,
+        "form_values": patient_form_values(patient),
         "can_view_sensitive": can_view_clinical_patient_fields(current_user),
         "can_delete": current_user.role is UserRole.CLINIC_ADMIN,
         "billing_enabled": patient.clinic.billing_module_enabled,

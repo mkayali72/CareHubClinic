@@ -110,8 +110,9 @@ The migrations create the following foundational and patient tables:
 - **Patient** is a clinic-scoped soft-deletable demographic record with
   structured contact, insurance, emergency contact, allergy, and medication
   JSON data plus a standing contraception field. Patient API responses are
-  projected by role; `billing_clerk` receives only name, date of birth,
-  contact, and insurance information.
+  projected by role; `front_desk` and `billing_clerk` receive only name, date
+  of birth, contact, and insurance information, while clinical roles also
+  receive emergency contact and clinical standing fields.
 - **SoftDeleteMixin** adds `deleted_at` and `deleted_by_user_id`. SQLAlchemy
   SELECT statements exclude soft-deleted rows by default; callers must
   explicitly opt in with `include_deleted=True` to inspect them.
@@ -136,7 +137,8 @@ The `/patients` workspace is visible to `physician`, `nurse_ma`, `front_desk`,
 `billing_clerk`, and `clinic_admin`. It is ordered most-recent-first and
 supports htmx create/edit forms without full-page form submissions. Allergies
 and current medications are stored as structured lists of objects rather than
-free-text fields.
+free-text fields. Only `physician`, `nurse_ma`, and `clinic_admin` can view or
+write emergency contact, allergy, medication, and contraception fields.
 
 Patient detail pages include Summary, Visit History, Labs, and Prescriptions
 tabs. A Billing tab is rendered only when the owning Clinic has
