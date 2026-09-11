@@ -1,10 +1,11 @@
-"""Foundational clinic, user, and audit entities.
+"""Foundational clinic, patient, user, and audit entities.
 
-These models represent tenant configuration, staff access, and immutable
-record-level history. Clinical entities such as patients and visits will be
-added later and should reuse SoftDeleteMixin where deletion is meaningful.
+These models represent tenant configuration, patient demographics, staff
+access, and immutable record-level history. Future clinical records should
+reuse SoftDeleteMixin where deletion is meaningful.
 """
 
+from datetime import date
 from datetime import datetime
 from enum import Enum
 from typing import Any
@@ -117,6 +118,107 @@ class Clinic(SoftDeleteMixin, Base):
         back_populates="clinic",
         cascade="save-update, merge",
     )
+    patients: Mapped[list["Patient"]] = relationship(
+        back_populates="clinic",
+        cascade="save-update, merge",
+    )
+
+
+class Patient(SoftDeleteMixin, Base):
+    """Represent patient demographic and medication-related information.
+
+    Fields:
+        id: Internal patient identifier.
+        clinic_id: Clinic tenant that owns the patient record.
+        name: Patient's display name.
+        date_of_birth: Patient's date of birth.
+        contact_info: Structured contact details such as phone, email, and
+            address.
+        insurance_info: Structured insurance details such as provider, member
+            ID, and group number.
+        emergency_contact: Structured emergency contact details.
+        allergies: Structured list of allergy objects, never free text.
+        current_medications: Structured list of medication objects.
+        contraception_method: Current standing contraception method, when
+            documented.
+        created_at: UTC timestamp when the record was created.
+        updated_at: UTC timestamp when the record was last changed.
+    """
+
+    __tablename__ = "patients"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        comment="Internal identifier for the patient.",
+    )
+    clinic_id: Mapped[int] = mapped_column(
+        ForeignKey("clinics.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+        comment="Clinic tenant that owns this patient record.",
+    )
+    name: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+        index=True,
+        comment="Patient display name.",
+    )
+    date_of_birth: Mapped[date] = mapped_column(
+        Date,
+        nullable=False,
+        comment="Patient date of birth.",
+    )
+    contact_info: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=dict,
+        comment="Structured phone, email, and address details.",
+    )
+    insurance_info: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=dict,
+        comment="Structured payer, member ID, and group number details.",
+    )
+    emergency_contact: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=dict,
+        comment="Structured emergency contact details.",
+    )
+    allergies: Mapped[list[dict[str, str]]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=list,
+        comment="Structured allergy objects; never store free-text notes here.",
+    )
+    current_medications: Mapped[list[dict[str, str]]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=list,
+        comment="Structured medication objects with name, dose, and frequency.",
+    )
+    contraception_method: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="Current standing contraception method, if documented.",
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="UTC timestamp when the patient record was created.",
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+        comment="UTC timestamp when the patient record was last changed.",
+    )
+
+    clinic: Mapped[Clinic] = relationship(back_populates="patients")
 
 
 class User(SoftDeleteMixin, Base):
