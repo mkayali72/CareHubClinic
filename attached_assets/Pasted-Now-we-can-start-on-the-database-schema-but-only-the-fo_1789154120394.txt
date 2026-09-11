@@ -1,0 +1,46 @@
+Now we can start on the database schema — but only the foundational pieces, not
+clinical data yet.
+
+Build the following, with full SQLAlchemy models, an Alembic migration, and
+docstrings on every model/field explaining what it represents:
+
+1. Clinic — represents a single tenant/customer (even though each clinic gets its
+   own isolated deployment/database in production, model it as a table now so we
+   have a natural home for clinic-level settings; fields: name, logo/branding
+   reference, created_at, and a JSON or dedicated settings table for feature flags
+   — specifically include a `billing_module_enabled` boolean flag, defaulting to
+   False, since the Billing module must be optional and hidden unless a clinic
+   enables it).
+
+2. User — fields: email, hashed password, full name, role, active/inactive status,
+   created_at. Role must be one of exactly these five values: physician, nurse_ma,
+   front_desk, billing_clerk, clinic_admin. Use a proper enum, not a free-text
+   string.
+
+3. AuditLog — a generic audit table that can reference any other record: fields
+   for actor_user_id, action (create/update/delete/restore), entity_type,
+   entity_id, timestamp, and a JSON diff/details field. Every future model that
+   supports deletion will write to this table — design it generically now so we
+   don't have to redesign it later.
+
+4. Implement soft-delete as a REUSABLE pattern (e.g. a SQLAlchemy mixin class with
+   `deleted_at` and `deleted_by_user_id` nullable columns, plus a default query
+   filter that excludes soft-deleted rows unless explicitly asked for). Every
+   future clinically-relevant model (Patient, Visit, Prescription, LabOrder, etc.)
+   will use this mixin — build it now so it's consistent everywhere. Document very
+   clearly, in the mixin's docstring, that this app NEVER performs true hard
+   deletes on clinical/financial data, and that only the clinic_admin role may
+   trigger a soft delete, enforced at the API/service layer (not just hidden in
+   the UI).
+
+5. Basic authentication: login/logout using session-based auth (not JWT unless you
+   have a strong reason — keep it simple), password hashing (bcrypt/argon2), and
+   role-based access control middleware/dependency that we'll use on every route
+   going forward. Build a simple login page (Jinja2 + htmx) and a logged-in landing
+   page that just says "Welcome, {name} ({role})" for now — no real dashboard yet.
+
+Update README.md with a short "Data Model" section explaining these four
+foundational tables and the soft-delete pattern. Update TESTING.md with manual
+test steps for: creating a user of each role, logging in/out, confirming a
+logged-out session can't hit any authenticated route, and confirming the
+soft-delete mixin actually excludes deleted rows from default queries.
