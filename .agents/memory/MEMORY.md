@@ -1,0 +1,1 @@
+- [PostgreSQL URL portability](postgresql-url-portability.md) — normalize generic PostgreSQL URLs when using psycopg 3.
