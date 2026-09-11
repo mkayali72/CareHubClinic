@@ -1,0 +1,61 @@
+I'm building a web application for OB/GYN clinics. Before you write any real feature
+code, I need you to set up the project scaffold ONLY, following these constraints
+exactly:
+
+STACK (do not deviate):
+- Backend: Python, FastAPI
+- Templates: Jinja2 server-rendered HTML
+- Frontend interactivity: htmx (no React/Vue/separate frontend build system)
+- Styling: Tailwind CSS via CDN link (no Tailwind build pipeline, no npm frontend
+  toolchain at all)
+- Database: PostgreSQL
+- Exactly TWO services/containers total for the whole application: "app" (FastAPI)
+  and "db" (Postgres). Do not add Redis, a separate worker/queue service, a reverse
+  proxy, or any other service. Any background job we need later (reminders, license
+  check-ins) will run as an in-process scheduled task inside the FastAPI app itself.
+
+CRITICAL PORTABILITY REQUIREMENT:
+This app must run in TWO environments over its life:
+1. Right now, in Replit, for UI/UX preview during development.
+2. Later, with ZERO Replit dependency, on a developer's own MacOS or Windows machine
+   using Docker Desktop, after the code is exported to GitHub.
+This means: do NOT use any Replit-proprietary services, Replit DB, Replit Auth,
+Replit-specific environment variable mechanisms, or any package/import that only
+works inside Replit. All configuration must come from standard environment variables
+(a .env file, loaded the standard way, e.g. via python-dotenv or pydantic-settings)
+so the exact same code runs unchanged in Replit and in a local Docker Desktop
+docker-compose setup. Keep a docker-compose.yml in the repo root from day one that
+defines the "app" and "db" services and can run this app completely outside Replit
+at any time — treat this as a first-class deliverable, not an afterthought.
+
+IMPORTANT — DO NOT BUILD THE DATABASE SCHEMA YET.
+For this prompt, do NOT create any database tables, models, or migrations. I will
+give you the schema requirements in a later prompt. For now:
+- Set up the FastAPI app skeleton with a clean project structure (separate folders
+  for routers, models, schemas, templates, static files, services/business logic).
+- Set up the Postgres connection (SQLAlchemy engine/session, or your recommended
+  lightweight equivalent) but only prove connectivity with a simple health-check
+  endpoint (e.g. GET /health that runs SELECT 1 against Postgres and returns OK).
+- Set up Alembic (or your recommended migration tool) and wire it up, but do not
+  generate any actual migration yet — just confirm the tool is configured and ready.
+- Create a base Jinja2 template with the left-sidebar layout shell (empty nav items
+  are fine for now) so we have something to look at in the Replit preview.
+
+DOCUMENTATION REQUIREMENT (applies to this and every future prompt):
+Every Python module, class, and function must have a clear docstring explaining
+its purpose, parameters, return values, and any important side effects or
+assumptions. Write docstrings as if another AI coding assistant (Claude Code) will
+need to understand and modify this code later without any other context — be
+explicit rather than terse. Also create a README.md at the project root explaining:
+- The overall project purpose (OB/GYN clinic management app)
+- The tech stack and why it's minimal (2 containers, no frontend build step)
+- The folder structure and what lives where
+- How to run the app in Replit (for preview/development)
+- How to run the app with Docker Desktop, completely independent of Replit, once
+  exported to GitHub (docker-compose up, required .env variables, etc.)
+- Explicitly state that no database schema has been created yet and why (we're
+  deliberately sequencing schema design as a separate, later step)
+
+Confirm the health-check endpoint works and the empty layout renders in the Replit
+preview before we move to the next step. Do not add any patient, user, or clinical
+data models yet — wait for my next instruction.
