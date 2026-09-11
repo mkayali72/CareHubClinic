@@ -1,0 +1,1 @@
+"""Application package for the OB/GYN clinic management scaffold."""

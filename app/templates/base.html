@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ page_title }} · {{ app_name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/app.css') }}" />
+  </head>
+  <body class="min-h-screen">
+    <div class="flex min-h-screen">
+      <aside class="hidden w-72 shrink-0 border-r border-slate-200 bg-white lg:flex lg:flex-col">
+        <div class="border-b border-slate-100 px-7 py-6">
+          <div class="flex items-center gap-3">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-sm font-bold text-white">
+              OC
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-slate-950">{{ app_name }}</p>
+              <p class="mt-0.5 text-xs text-slate-500">Clinic operations</p>
+            </div>
+          </div>
+        </div>
+        <nav class="flex-1 px-4 py-6" aria-label="Primary navigation">
+          <p class="px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Workspace</p>
+          <a class="sidebar-link mt-3 flex items-center gap-3 rounded-xl bg-indigo-50 px-3 py-2.5 text-sm font-semibold text-indigo-700" href="/">
+            <span class="h-2 w-2 rounded-full bg-indigo-600"></span>
+            Overview
+          </a>
+          <div class="mt-6 rounded-xl border border-dashed border-slate-200 px-3 py-4">
+            <p class="text-xs font-medium text-slate-500">Navigation is intentionally empty</p>
+            <p class="mt-1 text-xs leading-5 text-slate-400">Clinical modules will be added after the domain schema is approved.</p>
+          </div>
+        </nav>
+        <div class="border-t border-slate-100 px-7 py-5">
+          <p class="text-xs text-slate-400">Starter scaffold</p>
+          <p class="mt-1 text-sm font-medium text-slate-700">Ready for schema design</p>
+        </div>
+      </aside>
+
+      <main class="min-w-0 flex-1">
+        <header class="border-b border-slate-200 bg-white">
+          <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 lg:px-10">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">Clinic workspace</p>
+              <h1 class="mt-1 text-2xl font-semibold tracking-tight text-slate-950">{{ page_title }}</h1>
+            </div>
+            <div class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-500">
+              Development preview
+            </div>
+          </div>
+        </header>
+        <div class="mx-auto max-w-7xl px-6 py-8 lg:px-10">
+          {% block content %}{% endblock %}
+        </div>
+      </main>
+    </div>
+  </body>
+</html>
