@@ -40,6 +40,8 @@ alembic/
 docker-compose.yml      Portable app + PostgreSQL development environment
 Dockerfile              Container image for the FastAPI app
 requirements.txt        Pinned Python dependencies
+requirements-dev.txt    Test dependencies for pytest and FastAPI TestClient
+tests/                  Isolated automated foundation tests
 ```
 
 ## Run in Replit

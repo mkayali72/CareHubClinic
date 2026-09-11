@@ -30,6 +30,9 @@ class Settings:
     host: str
     port: int
     session_secret: str
+    session_max_age_seconds: int
+    login_max_failed_attempts: int
+    login_lockout_seconds: int
 
 
 def normalize_database_url(database_url: str) -> str:
@@ -77,6 +80,18 @@ def get_settings() -> Settings:
         "postgresql+psycopg://clinic:clinic@localhost:5432/obgyn",
     )
 
+    def positive_int(name: str, default: str) -> int:
+        """Read a positive integer setting from the environment."""
+
+        raw_value = os.getenv(name, default)
+        try:
+            value = int(raw_value)
+        except ValueError as exc:
+            raise ValueError(f"{name} must be a positive integer.") from exc
+        if value <= 0:
+            raise ValueError(f"{name} must be a positive integer.")
+        return value
+
     return Settings(
         app_name=os.getenv("APP_NAME", "OB/GYN Clinic"),
         app_env=os.getenv("APP_ENV", "development"),
@@ -87,6 +102,9 @@ def get_settings() -> Settings:
             "SESSION_SECRET",
             "development-only-change-this-session-secret",
         ),
+        session_max_age_seconds=positive_int("SESSION_MAX_AGE_SECONDS", "1209600"),
+        login_max_failed_attempts=positive_int("LOGIN_MAX_FAILED_ATTEMPTS", "5"),
+        login_lockout_seconds=positive_int("LOGIN_LOCKOUT_SECONDS", "900"),
     )
 
 

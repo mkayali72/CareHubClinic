@@ -9,6 +9,49 @@ from app.models import AuditAction, AuditLog, User, UserRole
 from app.models.base import SoftDeleteMixin
 
 
+def record_audit_event(
+    db: Session,
+    actor_user_id: int | None,
+    action: AuditAction,
+    entity_type: str,
+    entity_id: int,
+    details: dict[str, Any] | None = None,
+) -> AuditLog:
+    """Add one immutable lifecycle event to the audit log.
+
+    Args:
+        db: Request-scoped SQLAlchemy session.
+        actor_user_id: ID of the staff user responsible, if known.
+        action: Lifecycle action being recorded.
+        entity_type: Stable resource name for the affected row.
+        entity_id: Identifier of the affected row.
+        details: Optional JSON-safe diff or contextual metadata.
+
+    Returns:
+        The pending AuditLog instance. The caller controls transaction commit.
+    """
+
+    audit_log = AuditLog(
+        actor_user_id=actor_user_id,
+        action=action,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        details=details or {},
+    )
+    db.add(audit_log)
+    return audit_log
+
+
+def reject_audit_log_mutation() -> None:
+    """Reject all attempts to edit or delete immutable audit history.
+
+    Raises:
+        PermissionError: Always, because audit records are append-only.
+    """
+
+    raise PermissionError("AuditLog records are immutable and append-only.")
+
+
 def ensure_clinic_admin(actor: User) -> None:
     """Enforce the service-layer authorization rule for destructive actions.
 
@@ -52,15 +95,14 @@ def soft_delete_record(
 
     ensure_clinic_admin(actor)
     record.soft_delete(actor.id, deleted_at=deleted_at)
-    audit_log = AuditLog(
+    return record_audit_event(
+        db=db,
         actor_user_id=actor.id,
         action=AuditAction.DELETE,
         entity_type=entity_type,
         entity_id=entity_id,
-        details=details or {},
+        details=details,
     )
-    db.add(audit_log)
-    return audit_log
 
 
 def restore_record(
@@ -90,12 +132,11 @@ def restore_record(
 
     ensure_clinic_admin(actor)
     record.restore()
-    audit_log = AuditLog(
+    return record_audit_event(
+        db=db,
         actor_user_id=actor.id,
         action=AuditAction.RESTORE,
         entity_type=entity_type,
         entity_id=entity_id,
-        details=details or {},
+        details=details,
     )
-    db.add(audit_log)
-    return audit_log

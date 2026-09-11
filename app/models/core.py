@@ -132,9 +132,14 @@ class User(SoftDeleteMixin, Base):
         email: Unique login identifier.
         hashed_password: Argon2 password hash.
         full_name: Name shown on the authenticated landing page and audit log.
-        role: One of the five allowed UserRole values.
+        role: One of the five allowed UserRole values, or None while an account
+            is awaiting role assignment. An unassigned user receives no
+            elevated access.
         is_active: Whether login is currently allowed.
         created_at: UTC timestamp when the account was created.
+        session_version: Counter used to invalidate previously issued sessions.
+        failed_login_attempts: Consecutive failed login count.
+        locked_until: UTC timestamp until which login attempts are rejected.
     """
 
     __tablename__ = "users"
@@ -170,13 +175,13 @@ class User(SoftDeleteMixin, Base):
         nullable=False,
         comment="Staff member's display name.",
     )
-    role: Mapped[UserRole] = mapped_column(
+    role: Mapped[UserRole | None] = mapped_column(
         SqlEnum(
             UserRole,
             name="user_role",
             values_callable=enum_values,
         ),
-        nullable=False,
+        nullable=True,
         comment="One of physician, nurse_ma, front_desk, billing_clerk, clinic_admin.",
     )
     is_active: Mapped[bool] = mapped_column(
@@ -191,6 +196,25 @@ class User(SoftDeleteMixin, Base):
         nullable=False,
         server_default=func.now(),
         comment="UTC timestamp when the staff account was created.",
+    )
+    session_version: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+        comment="Counter used to invalidate previously issued signed sessions.",
+    )
+    failed_login_attempts: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+        comment="Consecutive failed login attempts for lockout enforcement.",
+    )
+    locked_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="UTC timestamp until which login is locked, or NULL when unlocked.",
     )
 
     clinic: Mapped[Clinic] = relationship(back_populates="users")

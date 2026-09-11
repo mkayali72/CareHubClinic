@@ -16,6 +16,16 @@ Recommended format:
 - [ ] Verify validation and error states.
 ```
 
+Automated tests run with:
+
+```bash
+python -m pytest -q
+```
+
+The pytest fixtures use a fresh in-memory SQLite database for every test and
+override FastAPI's database dependency, so automated tests never touch the
+development PostgreSQL database.
+
 ## Foundational schema and authentication
 
 Use a development database and the current migration before following these

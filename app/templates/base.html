@@ -47,7 +47,7 @@
               <h1 class="mt-1 text-2xl font-semibold tracking-tight text-slate-950">{{ page_title }}</h1>
             </div>
             <div class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-500">
-              {% if user %}{{ user.role.value|replace("_", " ")|title }}{% else %}Development preview{% endif %}
+              {% if user %}{{ user.role.value|replace("_", " ")|title if user.role else "Unassigned" }}{% else %}Development preview{% endif %}
             </div>
           </div>
         </header>

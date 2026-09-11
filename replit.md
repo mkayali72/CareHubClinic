@@ -12,6 +12,7 @@ soft-delete infrastructure while intentionally stopping before clinical data.
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - `python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}` — run the FastAPI preview
+- `python -m pytest -q` — run the isolated automated test suite
 - Required env: `DATABASE_URL` — standard PostgreSQL connection string
 
 ## Stack

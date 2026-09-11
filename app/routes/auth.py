@@ -90,17 +90,18 @@ def login(
 
 
 @router.post("/logout")
-def logout(request: Request) -> Response:
+def logout(request: Request, db: Session = Depends(get_db)) -> Response:
     """End the current session and redirect to the login page.
 
     Args:
         request: Incoming request whose session should be cleared.
+        db: Request-scoped SQLAlchemy session used to revoke the session.
 
     Returns:
         An htmx redirect response or normal browser redirect.
     """
 
-    logout_user(request)
+    logout_user(request, db)
     if request.headers.get("HX-Request") == "true":
         response = Response(status_code=204)
         response.headers["HX-Redirect"] = "/login"
