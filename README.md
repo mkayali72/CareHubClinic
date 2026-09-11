@@ -95,3 +95,10 @@ No database schema has been created yet. This is deliberate: the clinical
 domain requirements need to be agreed on before tables, models, or migrations
 are generated. Alembic is already configured and will use the same standard
 `DATABASE_URL` environment variable when the schema design step begins.
+
+## Development documentation
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — coding conventions, module organization,
+  naming rules, and the checklist for every new feature
+- [TESTING.md](TESTING.md) — manual test notes to append as features are built
+- [TEST_RESULTS.md](TEST_RESULTS.md) — append-only history of automated test runs

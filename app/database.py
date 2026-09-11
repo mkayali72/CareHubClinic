@@ -6,7 +6,7 @@ imports are registered yet because schema design is deliberately deferred.
 
 from collections.abc import Generator
 
-from sqlalchemy import Engine, create_engine, text
+from sqlalchemy import Connection, Engine, create_engine, text
 
 from app.config import settings
 
@@ -17,7 +17,7 @@ engine: Engine = create_engine(
 )
 
 
-def get_connection() -> Generator:
+def get_connection() -> Generator[Connection, None, None]:
     """Yield a SQLAlchemy connection for future request-scoped database work.
 
     Yields:

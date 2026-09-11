@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Request
 from fastapi.templating import Jinja2Templates
+from starlette.responses import Response
 
 from app.config import settings
 
@@ -10,7 +11,7 @@ templates = Jinja2Templates(directory="app/templates")
 
 
 @router.get("/")
-def dashboard(request: Request):
+def dashboard(request: Request) -> Response:
     """Render the empty clinic dashboard shell.
 
     Args:

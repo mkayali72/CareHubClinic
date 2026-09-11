@@ -1,0 +1,34 @@
+Before we build any features, let's lock in coding conventions so everything we
+build from here on is consistent and easy for another AI coding assistant (Claude
+Code) to pick up later with no extra context.
+
+Please create a CONTRIBUTING.md (or a "Development Conventions" section in the
+README) that documents:
+- Docstring style to use for every function/class (Google-style or NumPy-style —
+  pick one and use it everywhere from now on)
+- Type hints required on all function signatures
+- How routers/services/models are organized and named (e.g. one router file per
+  module: scheduling, patients, visits, labs, prescriptions, billing, reporting)
+- How database models are documented (each SQLAlchemy model should have a
+  module-level docstring explaining what real-world entity it represents and how
+  it relates to other models)
+- Naming conventions for API routes and template files
+- A note that every new feature module must ship with: (a) the feature code,
+  (b) docstrings/type hints per the above, (c) a short section added to the README
+  describing the module, and (d) any relevant manual test steps noted in a
+  TESTING.md file we'll build up incrementally as we go (create this file now,
+  empty except for a header and instructions to append test notes per module).
+
+Also create TEST_RESULTS.md now (empty except for a header explaining its
+purpose): this file is the running, authoritative log of every automated test run
+we do throughout this build. From the next test prompt onward, each test batch
+will append a new dated section here in the format: a heading naming which build
+prompt it covers, then one line per test case as
+`Test <number>: <PASS|FAIL|MANUAL> — <what was tested>`, with a clear explanation
+underneath any FAIL or MANUAL entry (what was expected, what happened, and — once
+fixed — what the fix was). Never overwrite previous entries; always append, so
+this file becomes a scannable history of test health over the life of the build.
+
+Apply this convention retroactively to the scaffold code from Prompt 1 (add
+docstrings/type hints where missing). Do not add any new features or database
+models in this step.
