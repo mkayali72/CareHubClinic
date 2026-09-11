@@ -49,3 +49,29 @@ Test 4: PASS — Verified billing_clerk cannot write sensitive fields even when 
 Test 5: PASS — Verified the Billing tab appears only when Clinic.billing_module_enabled is true and the future-module placeholder renders.
 Test 6: PASS — Verified patient API ordering is newest-first and patient data is clinic-scoped.
 Test 7: PASS — Verified only clinic_admin can soft-delete a patient, the delete is audited, the row is retained, and active list/API results exclude it.
+
+## 2026-09-11 — Prompt 4.T — Patient Demographics
+
+Test 3: PASS — Verified front_desk direct patient API responses include permitted demographics but exclude emergency contact, allergies, current medications, and contraception.
+Test 5: PASS — Verified billing_clerk direct patient API responses include name, date of birth, contact, and insurance while excluding all clinical fields.
+Test 6: PASS — Verified physician, nurse_ma, front_desk, and clinic_admin can view any active patient in their clinic without per-doctor restrictions.
+Test 7: PASS — Exercised every patient list, detail, form, create, update, and delete route directly for every staff role; only clinic_admin deletion was accepted.
+Test 17: PASS — Verified soft-deleted patients immediately disappear from HTML and API list/detail views for every role, then restored the record through the existing clinic_admin-only restore service with all data intact.
+Test 18: PASS — Verified patient deletion retains the database row, clinic association, and create/delete audit history without orphaned linked state.
+Test 58: PASS — Verified omitting each required create field, name and date_of_birth, returns HTTP 422 with a field-specific validation response and creates no incomplete record.
+Test 59: PASS — Verified the current documented behavior: similar patients are accepted because duplicate detection is not implemented; no accidental error or silent data loss occurs.
+Test 60: PASS — Verified multiple allergy and medication entries plus contraception save and reload correctly through the direct API.
+
+Prompt 3.T Test 1: PASS — Full regression run retained login coverage for all five roles.
+Prompt 3.T Test 2: PASS — Full regression run retained authentication and clinic-admin authorization coverage.
+Prompt 3.T Test 8: PASS — Full regression run retained session expiration coverage.
+Prompt 3.T Test 9: PASS — Full regression run retained logout session-version invalidation coverage.
+Prompt 3.T Test 10: PASS — Full regression run retained password complexity and failed-login lockout coverage.
+Prompt 3.T Test 12: PASS — Full regression run retained immediate role-change authorization coverage.
+Prompt 3.T Test 13: PASS — Full regression run retained safe unassigned-role denial coverage.
+Prompt 3.T Test 14: PASS — Full regression run retained soft-delete field retention coverage.
+Prompt 3.T Test 15: PASS — Full regression run retained default soft-delete filtering coverage.
+Prompt 3.T Test 16: PASS — Full regression run retained soft-delete audit coverage.
+Prompt 3.T Test 19: PASS — Full regression run retained no-hard-delete implementation coverage.
+Prompt 3.T Test 20: PASS — Full regression run retained create/update/delete audit coverage.
+Prompt 3.T Test 21: PASS — Full regression run retained immutable audit-log protection coverage.

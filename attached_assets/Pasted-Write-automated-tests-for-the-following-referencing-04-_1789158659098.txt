@@ -1,0 +1,33 @@
+Write automated tests for the following, referencing 04-qa-test-plan.md:
+
+- Test 3: front_desk role, via direct API call (not just UI), cannot retrieve
+  clinical fields for any patient (there are no visit notes yet, but confirm
+  front_desk's patient API response excludes allergies/medications/contraception
+  per our access design — adjust the assertion to whatever fields we've scoped as
+  clinical-only so far).
+- Test 5: billing_clerk can retrieve name/contact/insurance for a patient but not
+  allergies/medications/contraception.
+- Test 6: physician, nurse_ma, front_desk, clinic_admin can all view any patient
+  in the clinic (no per-doctor restriction).
+- Test 7: attempt every Patient CRUD route as each role directly via the API
+  (bypassing the UI) and confirm the response matches the intended permission
+  matrix, not just what the UI happens to show.
+- Test 17: soft-delete a patient, confirm it disappears from list views for every
+  role immediately, then confirm it can be restored (or confirm the exact restore
+  mechanism we built) with data intact.
+- Test 18: confirm deleting a patient does not hard-delete or corrupt anything
+  else linked to it (there's nothing linked yet besides the audit log — just
+  confirm no errors/orphaned state).
+- Test 58: attempt to create a patient missing each required field one at a time
+  and confirm clear validation errors, not a 500 or a silently-incomplete record.
+- Test 59: if duplicate-detection is implemented, test it with an intentionally
+  similar patient and confirm the intended behavior (flag, not silently block or
+  silently allow, depending on our design).
+- Test 60: allergies, current medications, and contraception method save and
+  reload correctly, including with multiple entries in the structured list.
+
+Also re-run the full Prompt 3.T test suite to confirm no regressions. Fix any
+failures, flagging anything requiring manual verification in TESTING.md. Record
+every test's outcome (including the re-run of Prompt 3.T's tests) in
+TEST_RESULTS.md under a "Prompt 4.T — Patient Demographics" heading, one
+PASS/FAIL/MANUAL line per test number, with a clear explanation under any FAIL.
