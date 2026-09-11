@@ -1,0 +1,37 @@
+Write automated tests (pytest + FastAPI TestClient, against a test database — use
+a separate test DB or transaction rollback per test, don't touch real data) for
+the following behaviors, referencing test case numbers from 04-qa-test-plan.md:
+
+- Test 1: a user of each of the 5 roles can log in successfully.
+- Test 2: for at least the clinic_admin-only routes we have so far (if any exist
+  yet) and any authenticated-only route, confirm a non-clinic_admin or logged-out
+  request is rejected (403/401), not silently allowed.
+- Test 8: an authenticated session can access a protected route; after simulating
+  the configured inactivity timeout, the same session is rejected.
+- Test 9: after logout, the previous session token/cookie can no longer access
+  any authenticated route.
+- Test 10: password complexity rules reject a weak password at user creation; N
+  failed login attempts trigger a lockout.
+- Test 12: changing a user's role takes effect per our intended design (test
+  whichever we implemented — immediate invalidation or next-login).
+- Test 13: a newly created user with no role assigned yet has no elevated access
+  by default (fails safe, not open).
+- Test 14: soft-deleting a record (use the User or Clinic table) sets deleted_at/
+  deleted_by rather than removing the row — assert directly against the database,
+  not just the API response.
+- Test 15: a soft-deleted record no longer appears in default list/query results.
+- Test 16: an AuditLog entry exists recording who deleted it and when.
+- Test 19: confirm there is no code path anywhere in the app that performs a true
+  SQL DELETE on a soft-deletable model — search for and flag any raw DELETE
+  statement against these tables.
+- Test 20: create/update/delete actions each write a correct AuditLog entry.
+- Test 21: attempt to edit or delete an AuditLog entry via any available route as
+  any role, including clinic_admin, and confirm it's rejected.
+
+Run the full test suite now. Fix any failures, and flag anything you could not
+fully automate (e.g. real session-timeout wall-clock behavior) with a manual
+verification note added to TESTING.md instead. Record every test's outcome in
+TEST_RESULTS.md per our logging convention (section heading "Prompt 3.T —
+Foundation", one PASS/FAIL/MANUAL line per test number, with a clear explanation
+under any FAIL or MANUAL entry). Give me a short summary back here in chat too,
+but TEST_RESULTS.md is the authoritative record.
