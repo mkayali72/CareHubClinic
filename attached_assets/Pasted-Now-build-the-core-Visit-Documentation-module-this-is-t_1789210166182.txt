@@ -1,0 +1,55 @@
+Now build the core Visit Documentation module — this is the most clinically
+important part of the app, so take care with the data model.
+
+Data model:
+- PregnancyEpisode: belongs to a Patient, groups related prenatal visits, has
+  fields for LMP, EDD (with support for a corrected EDD after ultrasound dating),
+  and a status (active/delivered/ended).
+- Visit: uses the soft-delete mixin, belongs to a Patient and optionally to a
+  PregnancyEpisode (only for prenatal-type visits), has a visit_type field
+  (prenatal, gyn_annual, postpartum, problem_focused), a locked_at nullable
+  timestamp, structured fields per visit_type (vitals: BP/weight/height for all
+  types; prenatal-specific: fundal height, fetal heart tones, fetal
+  position/presentation, gestational-age-derived fields, structured ultrasound
+  findings — EFW, AFI, placenta location, presentation, biometry; gyn-specific:
+  menstrual history, Pap/HPV due-date tracking), a free-text HPI/assessment/plan
+  area, and a diagnosis field using ICD-10 codes (structured selection, not free
+  text — a simple lookup table of common OB/GYN ICD-10 codes is fine to seed for
+  now).
+- VisitAmendment: belongs to a Visit, records amendments made after a Visit is
+  locked — fields for the amending user, timestamp, and the amendment content.
+  Locked visits must reject direct field edits at the API layer and only allow
+  creating an Amendment instead.
+- ProcedureRecord: belongs to a Visit, for structured IUD insertion/removal,
+  colposcopy, and endometrial biopsy documentation.
+- DeliveryOutcome: belongs to a PregnancyEpisode, fields for delivery date, mode,
+  complications, birth weight, Apgar scores.
+- PhraseTemplate: belongs to a Clinic, created by a physician, reusable free-text
+  snippets any clinician in the clinic can insert into free-text fields. Editing a
+  template must NOT retroactively change text already inserted into previously
+  saved visit notes (store a copy of the text at insertion time, not a live
+  reference).
+
+Build:
+- The visit note screen as a single scrolling page (not tabs/wizard), loading the
+  correct structured fields based on visit_type.
+- Gestational age auto-calculated from the episode's LMP/EDD and displayed
+  prominently on prenatal visits.
+- A weight/BP/fundal-height trend chart on the PregnancyEpisode view (simple
+  chart, no heavy charting library needed — something lightweight is fine).
+- Auto-calculated, dismissible reminders for trimester-specific screenings
+  (glucose tolerance test, Group B Strep, Rhogam) based on gestational age —
+  dismissing a reminder should NOT mark the underlying screening as done, just
+  hide the prompt.
+- Visit locking logic: implement the lock as a configurable time window (default
+  to 48 hours for now, but make it a named constant we can easily change) and the
+  Amendment flow described above.
+- The "next actions" prompt after saving a visit note (schedule follow-up / mark
+  done), with a clear skip/cancel option.
+
+This is a big module — document extremely thoroughly, since this is the part of
+the app Claude Code will need to extend most often later (e.g. adding new visit
+templates or clinical fields). Add a substantial "Clinical Documentation" section
+to README.md explaining the PregnancyEpisode/Visit/Amendment relationship clearly,
+since it's the trickiest part of the data model. Add manual test steps to
+TESTING.md.
