@@ -295,3 +295,32 @@ tests/test_billing.py tests/test_reporting.py` completed with 129 passed and 3
 existing dependency deprecation warnings.
 Compilation and diff checks: PASS — `python -m compileall -q app tests alembic`
 and `git diff --check` completed without errors.
+
+## Prompt 12.T — Security Hardening
+
+QA plan reference: `04-qa-test-plan.md` was not present in the workspace; the
+requested Test 34–44 cases were implemented against the current application
+security contract. Tests 34, 35, 43, and 44 are explicitly deferred to
+deployment or organizational infrastructure/process verification.
+
+Test 34: MANUAL — Database encryption at rest and encrypted backups require the selected hosting provider's infrastructure configuration; application-level automated tests cannot verify disk or managed-database encryption.
+Test 35: MANUAL — The local app intentionally serves HTTP for development. Automated coverage confirms production session cookies are Secure, HttpOnly, and SameSite=Lax; an external TLS terminator must be tested for HTTP-to-HTTPS redirect at deployment.
+Test 36: PASS — Triggered unexpected 500, missing-CSRF, and authentication error conditions and confirmed passwords, session tokens, and PHI-like values were absent from responses and captured logs.
+Test 37: PASS — Rendered the built route set with PHI sentinel data and confirmed generated URL paths, query strings, hrefs, and form actions contained no patient names or clinical details.
+Test 38: PASS — Forced a production-configured 500 and confirmed the response contained no exception message, traceback, application path, or site-packages path.
+Test 39: PASS — Re-tested allowed PDF validation, rejected extension/type, invalid signature, and oversized upload cases.
+Test 40: PASS — Exercised SQL/XSS payloads across patient structured text, scheduling, clinical notes, lab catalog/order sets, prescriptions, and billing text; persisted values remained data and rendered output was escaped.
+Test 41: PASS — Submitted a state-changing request without a valid CSRF token and confirmed HTTP 403; valid session-bound tokens continued to submit successfully.
+Test 42: PASS — Repeated rapid failed logins until the configured account lockout engaged; subsequent correct-password login remained rejected while locked.
+Test 43: MANUAL — BAA coverage for production hosting and every ePHI-handling service requires deployment/vendor verification.
+Test 44: MANUAL — Ensuring test and staging environments never contain real PHI requires organizational data-handling controls and cannot be proven by application tests.
+
+Prompt 3.T regression: PASS — Included in the final full-suite run.
+Prompt 4.T regression: PASS — Included in the final full-suite run.
+Prompt 5.T regression: PASS — Included in the final full-suite run.
+Prompt 6.T regression: PASS — Included in the final full-suite run.
+Prompt 7.T regression: PASS — Included in the final full-suite run.
+Prompt 8.T regression: PASS — Included in the final full-suite run.
+Prompt 9.T regression: PASS — Included in the final full-suite run.
+Prompt 10.T regression: PASS — Included in the final full-suite run.
+Prompt 11.T regression: PASS — Included in the final full-suite run.

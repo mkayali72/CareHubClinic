@@ -3,6 +3,7 @@
 from dataclasses import replace
 from datetime import date
 import html
+import logging
 from pathlib import Path
 import re
 import time
@@ -14,11 +15,24 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.main import create_app
-from app.models import LabResult, Patient, User, UserRole
+from app.models import Clinic, LabResult, Patient, User, UserRole, VisitType
 from app.services import auth as auth_service
+from app.services.billing import create_fee_schedule_item, create_invoice
+from app.services.clinical import create_visit
 from app.services.csrf import enforce_csrf
-from app.services.labs import lab_file_path_for_result
+from app.services.labs import (
+    LAB_RESULT_MAX_BYTES,
+    _validate_uploaded_file,
+    create_lab_order_set,
+    create_lab_test_definition,
+    lab_file_path_for_result,
+)
 from app.services.patients import create_patient
+from app.services.prescriptions import (
+    create_medication_definition,
+    create_prescription,
+)
+from app.services.scheduling import create_appointment_type
 
 
 def database_override(db_session: Session):
@@ -118,6 +132,29 @@ def test_csrf_dependency_is_registered_globally_for_all_write_routes() -> None:
     )
 
 
+def test_35_production_session_cookie_requires_secure_transport(
+    db_session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Production cookies require HTTPS even though TLS termination is external."""
+
+    import app.main as main_module
+
+    monkeypatch.setattr(
+        main_module,
+        "settings",
+        replace(main_module.settings, app_env="production"),
+    )
+    application = create_app()
+    application.dependency_overrides[get_db] = lambda: db_session
+    with TestClient(application, raise_server_exceptions=False) as client:
+        response = client.get("/login")
+    cookie = response.headers["set-cookie"].lower()
+    assert "secure" in cookie
+    assert "httponly" in cookie
+    assert "samesite=lax" in cookie
+
+
 def test_login_endpoint_locks_out_repeated_failed_attempts(
     secure_client: TestClient,
     seeded_users: dict[UserRole, User],
@@ -148,6 +185,68 @@ def test_login_endpoint_locks_out_repeated_failed_attempts(
     assert correct_while_locked.status_code == 401
     db_session.refresh(user)
     assert user.locked_until is not None
+
+
+def test_36_error_conditions_do_not_log_or_return_secrets(
+    db_session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Unexpected, CSRF, and authentication errors stay free of sensitive data."""
+
+    import app.main as main_module
+
+    secret_values = (
+        "password=correct-horse",
+        "session-token-secret",
+        "PHI Patient Qatar 123",
+    )
+    monkeypatch.setattr(
+        main_module,
+        "settings",
+        replace(main_module.settings, app_env="production"),
+    )
+    application = create_app()
+
+    @application.get("/security-test-sensitive-error")
+    def sensitive_error():
+        raise RuntimeError(" ".join(secret_values))
+
+    application.dependency_overrides[get_db] = lambda: db_session
+    with caplog.at_level(logging.ERROR):
+        with TestClient(
+            application,
+            base_url="https://testserver",
+            raise_server_exceptions=False,
+        ) as client:
+            unexpected = client.get(
+                "/security-test-sensitive-error",
+                headers={"Accept": "application/json"},
+            )
+            csrf = client.post(
+                "/login",
+                data={
+                    "email": "patient@example.invalid",
+                    "password": secret_values[0],
+                },
+            )
+            authentication = client.post(
+                "/login",
+                data={
+                    "email": "patient@example.invalid",
+                    "password": secret_values[0],
+                    "_csrf_token": extract_csrf_token(client.get("/login")),
+                },
+            )
+
+    assert unexpected.status_code == 500
+    assert csrf.status_code == 403
+    assert authentication.status_code == 401
+    combined_response_text = unexpected.text + csrf.text + authentication.text
+    combined_logs = caplog.text
+    for secret in secret_values:
+        assert secret not in combined_response_text
+        assert secret not in combined_logs
 
 
 def test_inactivity_timeout_expires_authenticated_session(
@@ -211,6 +310,9 @@ def test_production_errors_are_generic_while_development_can_expose_debug_detail
         assert safe_response.status_code == 500
         assert safe_response.json() == {"detail": "Internal server error."}
         assert "database-password" not in safe_response.text
+        assert "Traceback" not in safe_response.text
+        assert "/app/" not in safe_response.text
+        assert "site-packages" not in safe_response.text
 
 
 def test_xss_payload_is_escaped_and_no_unsafe_template_filter_exists(
@@ -253,6 +355,186 @@ def test_xss_payload_is_escaped_and_no_unsafe_template_filter_exists(
     )
     assert "|safe" not in template_source
     assert patient.id is not None
+
+
+def test_37_phi_is_absent_from_urls_across_rendered_routes(
+    client: TestClient,
+    seeded_users: dict[UserRole, User],
+    db_session: Session,
+) -> None:
+    """Patient names and clinical details never become URL path/query values."""
+
+    user = seeded_users[UserRole.CLINIC_ADMIN]
+    phi_marker = "PHI_URL_SENTINEL_123"
+    patient = create_patient(
+        db_session,
+        user.clinic_id,
+        user,
+        {
+            "name": phi_marker,
+            "date_of_birth": date(1990, 1, 1),
+            "contact_info": {"phone": "555-0100"},
+            "insurance_info": {"provider": "Private Payer"},
+            "emergency_contact": {"name": "Emergency Secret"},
+            "allergies": [{"name": "Confidential Allergy", "reaction": "Private"}],
+            "current_medications": [{"name": "Confidential Medication"}],
+            "contraception_method": "Private Method",
+        },
+    )
+    db_session.commit()
+    assert client.post(
+        "/login",
+        data={"email": user.email, "password": "Valid-Test-Password1"},
+        follow_redirects=False,
+    ).status_code == 303
+
+    paths = [
+        "/welcome",
+        "/patients",
+        f"/patients/{patient.id}",
+        "/schedule",
+        "/schedule/grid",
+        "/queue",
+        "/labs/pending",
+        "/admin/labs",
+        "/admin/prescriptions",
+        "/admin/license",
+        "/reports",
+    ]
+    for path in paths:
+        response = client.get(path, follow_redirects=False)
+        url_values = [str(response.url)]
+        url_values.extend(re.findall(r'(?:href|action)="([^"]+)"', response.text))
+        for value in url_values:
+            assert phi_marker not in value
+            assert "Confidential%20Allergy" not in value
+            assert "Confidential%20Medication" not in value
+            assert "Emergency%20Secret" not in value
+
+
+def test_39_file_upload_validation_retest() -> None:
+    """File extension, type, signature, and size checks remain enforced."""
+
+    valid_pdf = b"%PDF-1.7\nvalid\n%%EOF"
+    assert _validate_uploaded_file(
+        "report.pdf",
+        "application/pdf",
+        valid_pdf,
+    ) == ("report.pdf", "application/pdf")
+    for filename, content_type, content in (
+        ("report.txt", "text/plain", b"not allowed"),
+        ("report.pdf", "application/pdf", b"not a pdf"),
+        (
+            "report.pdf",
+            "application/pdf",
+            b"%PDF-" + b"0" * LAB_RESULT_MAX_BYTES,
+        ),
+    ):
+        with pytest.raises(ValueError):
+            _validate_uploaded_file(filename, content_type, content)
+
+
+def test_40_comprehensive_text_fields_remain_data_and_render_escaped(
+    client: TestClient,
+    seeded_users: dict[UserRole, User],
+    db_session: Session,
+) -> None:
+    """Exercise text fields across patient, scheduling, clinical, lab, Rx, and billing."""
+
+    xss = '<script>alert("prompt12")</script>'
+    sql = "' OR 1=1 --"
+    admin = seeded_users[UserRole.CLINIC_ADMIN]
+    physician = seeded_users[UserRole.PHYSICIAN]
+    patient = create_patient(
+        db_session,
+        physician.clinic_id,
+        physician,
+        {
+            "name": xss,
+            "date_of_birth": date(1990, 1, 1),
+            "contact_info": {"phone": xss, "email": sql},
+            "insurance_info": {"provider": xss, "member_id": sql},
+            "emergency_contact": {"name": xss, "relationship": sql, "phone": xss},
+            "allergies": [{"name": xss, "reaction": sql, "severity": xss}],
+            "current_medications": [{"name": xss, "dose": sql, "frequency": xss}],
+            "contraception_method": xss,
+        },
+    )
+    appointment_type = create_appointment_type(
+        db_session,
+        admin.clinic_id,
+        admin,
+        xss,
+        30,
+    )
+    definition = create_lab_test_definition(db_session, admin, xss + " lab", sql)
+    order_set = create_lab_order_set(
+        db_session,
+        admin,
+        xss + " bundle",
+        sql,
+        [definition.id],
+    )
+    medication = create_medication_definition(
+        db_session,
+        admin,
+        xss + " medication",
+        sql,
+        "false",
+        xss,
+    )
+    visit = create_visit(
+        db_session,
+        physician,
+        patient.id,
+        VisitType.PROBLEM_FOCUSED,
+        None,
+        {},
+        None,
+        None,
+        xss,
+        sql,
+        xss,
+        [],
+    )
+    prescription = create_prescription(
+        db_session,
+        physician,
+        visit.id,
+        medication.id,
+        xss,
+        sql,
+        xss,
+        acknowledge_allergy_warning=True,
+    )
+    clinic = db_session.get(Clinic, admin.clinic_id)
+    assert clinic is not None
+    clinic.billing_module_enabled = True
+    fee = create_fee_schedule_item(db_session, admin, xss + " fee", sql, "10")
+    invoice = create_invoice(db_session, admin, visit.id, [fee.id], notes=xss)
+    db_session.commit()
+
+    assert appointment_type.name == xss
+    assert order_set.description == sql
+    assert prescription.dosage == xss
+    assert invoice.notes == xss
+
+    pages = []
+    for path in ("/patients", f"/patients/{patient.id}", "/schedule", "/admin/labs"):
+        login_with_csrf(client, admin)
+        pages.append(client.get(path).text)
+    login_with_csrf(client, physician)
+    pages.extend(
+        [
+            client.get(f"/visits/{visit.id}").text,
+            client.get(f"/patients/{patient.id}/prescriptions").text,
+        ]
+    )
+    for page in pages:
+        assert xss not in page
+        assert '<script>alert("prompt12")</script>' not in page
+    assert any("&lt;script&gt;" in page for page in pages)
+    assert patient.id and appointment_type.id and definition.id and prescription.id
 
 
 def test_raw_sql_and_logging_audit_find_no_injection_or_phi_logging_paths(

@@ -404,6 +404,26 @@ license-server check-in. Use `/admin/license` as a `clinic_admin` to set
 Apply the documented environment settings and start the FastAPI workflow before
 testing. Use `APP_ENV=production` for the production-response checks.
 
+### Prompt 12.T infrastructure and process boundaries
+
+- **Test 34 — MANUAL/deployment:** Database encryption at rest cannot be
+  meaningfully verified by application-level tests. Once real hosting is
+  selected, verify encrypted database/storage volumes, encrypted backups, and
+  key management at the infrastructure level.
+- **Test 35 — MANUAL/deployment:** The local Uvicorn process intentionally
+  serves HTTP for development and automated tests. Production must place it
+  behind a TLS-terminating reverse proxy/load balancer that redirects HTTP to
+  HTTPS, forwards the correct scheme, and keeps `Secure` session cookies
+  enabled. The automated test verifies production cookies are `Secure`,
+  `HttpOnly`, and `SameSite=Lax`; the external HTTP-to-HTTPS behavior requires
+  the chosen hosting environment.
+- **Test 43 — MANUAL/deployment:** Confirm the selected hosting providers have
+  a BAA covering every service that handles ePHI. This is a contractual and
+  deployment verification, not an application-unit-test assertion.
+- **Test 44 — MANUAL/process:** Confirm test, staging, fixtures, backups, and
+  support workflows never contain real PHI. This is an organizational
+  data-handling requirement and must be verified through process controls.
+
 ### SQL injection and XSS
 
 - [ ] Submit SQL-like values such as `' OR 1=1 --` through patient, scheduling,
@@ -467,3 +487,12 @@ testing. Use `APP_ENV=production` for the production-response checks.
       secret management, key rotation, least-privilege access, MFA for
       infrastructure operators, monitoring, retention, incident response, and
       disaster recovery are configured outside this application.
+- [ ] For Test 34, record the selected hosting provider's encryption-at-rest
+      and backup-encryption configuration before production data is loaded.
+- [ ] For Test 35, run an external HTTP request against the production hostname
+      and confirm it redirects to HTTPS; then confirm HTTPS pages retain the
+      secure session-cookie attributes.
+- [ ] For Test 43, retain the signed BAA/vendor coverage record for each
+      production service that can process ePHI.
+- [ ] For Test 44, verify non-production databases and support exports contain
+      synthetic fixtures only and document the sanitization process.
