@@ -1,11 +1,12 @@
 """Automated query, RBAC, boundary, soft-delete, and export coverage for Reporting."""
 
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from io import BytesIO
 
 from fastapi.testclient import TestClient
 from openpyxl import load_workbook
+from pypdf import PdfReader
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -521,7 +522,7 @@ def test_93_date_filter_includes_both_boundaries_and_excludes_neighbors(
         admin,
         patient,
         appointment_type,
-        datetime.combine(REPORT_START, time.min) - __import__("datetime").timedelta(seconds=1),
+        datetime.combine(REPORT_START, time.min) - timedelta(seconds=1),
         AppointmentStatus.DONE,
     )
     outside_after = make_appointment(
@@ -529,7 +530,7 @@ def test_93_date_filter_includes_both_boundaries_and_excludes_neighbors(
         admin,
         patient,
         appointment_type,
-        datetime.combine(REPORT_END, time.min) + __import__("datetime").timedelta(days=1),
+        datetime.combine(REPORT_END, time.min) + timedelta(days=1),
         AppointmentStatus.DONE,
     )
     db_session.commit()
@@ -586,14 +587,24 @@ def test_94_pdf_and_excel_data_match_the_same_report_rows(
         list(row)
         for row in worksheet.iter_rows(min_row=5, values_only=True)
     ]
-    assert parsed_rows == expected_rows
+    normalized_rows = [
+        [
+            value.date()
+            if isinstance(value, datetime) and value.time() == time.min
+            else value
+            for value in row
+        ]
+        for row in parsed_rows
+    ]
+    assert normalized_rows == expected_rows
 
     pdf = export_pdf(report)
-    pdf_text = pdf.body.decode("latin-1")
+    pdf_text = "\n".join(
+        page.extract_text() or "" for page in PdfReader(BytesIO(pdf.body)).pages
+    )
     assert report["title"] in pdf_text
-    assert patient.name in pdf_text
-    assert "23:59" in pdf_text
-    assert "no_show" in pdf_text
+    for value in expected_rows[0]:
+        assert str(value) in pdf_text
 
 
 def test_95_front_desk_cannot_read_financial_report_data_directly(

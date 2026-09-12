@@ -215,3 +215,31 @@ schema migration.
 Workflow: PASS — Restarted the OB-GYN Clinic App workflow; local `/health`
 returned `{"status":"ok","database":"ok"}`, `/login` returned HTTP 200, and
 anonymous `/reports` returned HTTP 303 to authentication.
+
+## Prompt 10.T — Reporting
+
+QA plan reference: `04-qa-test-plan.md` was not present in the workspace; the
+requested Test 92–96 cases were implemented against the current Reporting
+contract.
+
+Test 92: PASS — Seeded exactly 3 appointments (2 no-shows), 1 screening visit,
+1 invoice, 1 delivery outcome, and 1 active pregnancy; asserted exact schedule,
+revenue, no-show, screening, pregnancy, and delivery report values.
+Test 93: PASS — Seeded appointments at start-of-day and end-of-day boundaries
+plus one record immediately before and after; asserted the inclusive
+`start_date <= value <= end_date` behavior and the half-open appointment
+datetime window.
+Test 94: PASS — Generated PDF and Excel exports, parsed Excel with openpyxl and
+PDF text with pypdf, and compared extracted values against the report rows.
+Test 95: PASS — A `front_desk` user received HTTP 403 for the direct revenue
+report route and its Excel export route.
+Test 96: PASS — Soft-deleted an appointment that initially counted and asserted
+the report count and detail rows excluded it while the database record remained.
+
+Prompt 3.T–9.T full regression: PASS — `python -m pytest -q
+tests/test_foundation.py tests/test_patients.py tests/test_scheduling.py
+tests/test_clinical.py tests/test_labs.py tests/test_prescriptions.py
+tests/test_billing.py tests/test_reporting.py` completed with 129 passed and 3
+existing dependency deprecation warnings.
+Compilation and diff checks: PASS — `python -m compileall -q app tests alembic`
+and `git diff --check` completed without errors.
