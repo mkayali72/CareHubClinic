@@ -127,6 +127,23 @@ Migration: PASS — Applied `0007_lab_orders`; Alembic reports `0007_lab_orders 
 Full regression suite: PASS — `python -m pytest -q` completed with 89 passed and 3 existing dependency deprecation warnings.
 Full regression suite: PASS — `python -m pytest -q` completed with 50 passed and 3 existing dependency deprecation warnings.
 
+## 2026-09-12 — Prompt 7.T — Lab Orders
+
+Test 39: PASS — Posted disallowed and oversized files directly to the LabResult endpoint and confirmed both were rejected server-side; valid PDF and JPG uploads succeeded, were retrievable by clinical roles for the clinic, and were denied to front_desk.
+Test 40: PASS — Sent SQL-injection and XSS payloads through test name/description, order-set name/description, and manual result fields; parameterized queries treated SQL as data and Jinja escaped rendered payloads rather than emitting executable markup.
+Test 77: PASS — Ordered one LabTestDefinition and a complete “New OB Panel” from the same visit; confirmed the single order and every bundle order were linked to that visit and patient with the correct order-set references.
+Test 78: PASS — Simulated opening and submitting the HTMX slide-over while a note was in progress; confirmed the response was a scoped lab fragment, excluded note fields, returned no navigation/reset response, and preserved the visit’s lab context.
+Test 79: PASS — Stored and reloaded manual-only, file-only, and combined manual-plus-file results; confirmed values, file metadata, and rendered retrieval links were retained.
+Test 80: PASS — Re-fetched an uploaded result after a delay and a database re-query boundary; response bytes remained identical to the original file.
+Test 81: PASS — Confirmed an unreviewed result has null reviewer metadata and `resulted` status, while physician sign-off sets `reviewed_by`, `reviewed_at`, and `reviewed` status.
+Test 82: PASS — Confirmed Pending Labs initially returned only orders without results and removed an order immediately after result creation on the next request without cache-busting.
+Prompt 3.T regression: PASS — Re-ran the complete foundation suite as part of the combined regression command; all 3.T cases passed.
+Prompt 4.T regression: PASS — Re-ran the complete patient demographics suite as part of the combined regression command; all 4.T cases passed.
+Prompt 5.T regression: PASS — Re-ran the complete scheduling suite as part of the combined regression command; all 5.T cases passed.
+Prompt 6.T regression: PASS — Re-ran the complete clinical visit documentation suite as part of the combined regression command; all 6.T cases passed.
+Combined Prompt 3.T–6.T regression: PASS — `python -m pytest -q tests/test_foundation.py tests/test_patients.py tests/test_scheduling.py tests/test_clinical.py` completed with 82 passed and 3 existing dependency deprecation warnings.
+Prompt 7.T suite: PASS — `python -m pytest -q tests/test_labs.py` completed with 15 passed and 2 existing dependency deprecation warnings.
+
 ## 2026-09-12 — Prompt 5.T — Scheduling
 
 Test 50: PASS — For every appointment type, created an appointment, edited its scheduled time and duration through the appointment endpoint, then cancelled it; each record retained its identity, type, edited values, and final `cancelled` status.

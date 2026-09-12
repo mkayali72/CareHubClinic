@@ -541,7 +541,7 @@ def create_lab_result(
         raise ValueError("This lab order already has a result.")
     normalized_value = (manual_value or "").strip()
     has_file = bool(filename or content_type or content)
-    if bool(normalized_value) == has_file:
+    if not normalized_value and not has_file:
         raise ValueError("Enter a manual value or upload one result file.")
     stored_name = stored_type = None
     stored_size = None
