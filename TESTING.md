@@ -189,3 +189,37 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
 - [ ] Open the same patient in two browser sessions, save or amend in one, and
       refresh the other; confirm persisted data appears. The app intentionally
       uses refresh/htmx requests rather than server-pushed realtime updates.
+
+## 2026-09-12 — Lab Orders
+
+Apply all migrations and start the documented FastAPI workflow before testing:
+
+```bash
+alembic upgrade head
+python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+```
+
+- [ ] As a clinical user, open a saved visit and launch **Open lab ordering
+      panel**. Confirm it opens as an inline slide-over without navigating away
+      from the note.
+- [ ] Order individual tests and a named order set. Confirm each order is
+      attached to the current visit and patient, and appears in `/labs/pending`
+      with status `ordered`.
+- [ ] As `clinic_admin`, open `/admin/labs`; add, rename, describe, deactivate,
+      and reactivate a test definition. Create and edit an order set and confirm
+      its test membership controls what clinicians can order.
+- [ ] Enter a manual result. Confirm the order changes to `resulted`, leaves
+      Pending Labs, and clearly shows that physician review is still pending.
+- [ ] Try to sign off a result as `nurse_ma`; confirm the action is rejected.
+      Sign off as a physician and confirm the status becomes `reviewed` with the
+      reviewing physician and timestamp visible.
+- [ ] Upload a valid PDF and a valid PNG/JPEG/WEBP result. Confirm each can be
+      downloaded by an authorized clinical role for that clinic and patient.
+- [ ] Attempt uploads with an unsupported extension, an oversized body, a
+      mismatched MIME type, and a renamed text file with a PDF extension.
+      Confirm server-side validation rejects every one.
+- [ ] Confirm uploaded files are not reachable through `/static`, the stored
+      filename is not the client filename, and authorized download responses
+      include attachment handling and `X-Content-Type-Options: nosniff`.
+- [ ] As `front_desk` and `billing_clerk`, confirm the lab panel, Pending Labs,
+      result download, and admin catalog routes are denied.

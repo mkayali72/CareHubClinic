@@ -2,8 +2,8 @@
 
 Portable FastAPI foundation for an OB/GYN clinic management app. The current
 release includes foundational tenancy, staff authentication, auditing,
-soft-delete infrastructure, Patient Demographics, Scheduling, and Visit
-Documentation.
+soft-delete infrastructure, Patient Demographics, Scheduling, Visit
+Documentation, and Lab Orders.
 
 ## Run & Operate
 
@@ -45,8 +45,8 @@ Documentation.
 
 The current product surface includes a signed-session login flow, a protected
 welcome page, clinic-scoped patient demographics, a calendar and today's queue,
-the clinic-scoped Visit Documentation workspace, PostgreSQL-backed `/health`,
-and foundational audit/soft-delete infrastructure.
+   the clinic-scoped Visit Documentation workspace, HTMX Lab Orders workflow,
+   PostgreSQL-backed `/health`, and foundational audit/soft-delete infrastructure.
 
 ## User preferences
 
@@ -63,6 +63,9 @@ system, and no Replit-specific dependencies.
 - Clinical documentation is limited to physicians, nurse/MAs, and clinic
   administrators. Visit fields lock after the named 48-hour window or an
   explicit lock, with amendments as the only post-lock note update.
+- Lab result files must remain outside the public static mount; validate size,
+  extension, declared type, and magic bytes server-side, generate storage names,
+  and authorize every download against the user's clinic and clinical role.
 
 ## Pointers
 

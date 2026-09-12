@@ -1,2 +1,3 @@
 - [PostgreSQL URL portability](postgresql-url-portability.md) — normalize generic PostgreSQL URLs when using psycopg 3.
 - [Patient role visibility](patient-role-visibility.md) — front desk and billing receive demographic-only projections; clinical roles receive sensitive fields.
+- [PostgreSQL enum migrations](postgresql-enum-migrations.md) — manually-created PostgreSQL enums must disable SQLAlchemy's implicit table-create step.

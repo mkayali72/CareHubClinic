@@ -113,6 +113,18 @@ Prompt 4.T regression: PASS — Re-ran patient tests as part of the combined reg
 Prompt 5.T regression: PASS — Re-ran scheduling tests as part of the combined regression command; all scheduling cases passed.
 Clinical suite: PASS — `python -m pytest -q tests/test_clinical.py` completed with 29 passed and 2 existing dependency deprecation warnings.
 Combined regression: PASS — `python -m pytest -q tests/test_foundation.py tests/test_patients.py tests/test_scheduling.py tests/test_clinical.py` completed with 82 passed and 3 existing dependency deprecation warnings.
+
+## 2026-09-12 — Lab Orders
+
+Test 1: PASS — Seeded the clinic-editable starter catalog, restricted catalog changes to clinic_admin, and verified deactivation removes a test from ordering choices without deleting it.
+Test 2: PASS — Created a named order set, ordered its multiple tests against one visit and patient, and confirmed each order starts as `ordered` and appears in Pending Labs.
+Test 3: PASS — Entered a manual result, confirmed the order becomes `resulted` and leaves the outstanding queue, rejected nurse/M A sign-off, and confirmed physician review changes the order to `reviewed` with reviewer and timestamp.
+Test 4: PASS — Validated a private PDF upload, generated a server-side filename, enforced private filesystem permissions, and served it only through the authorized patient-scoped clinical route.
+Test 5: PASS — Confirmed front desk access to a stored lab file is rejected.
+Test 6: PASS — Edited order-set membership as clinic_admin and confirmed the updated bundle persists.
+Test 7: PASS — Confirmed the clinic-admin lab catalog route is available to clinic_admin and denied to physicians.
+Migration: PASS — Applied `0007_lab_orders`; Alembic reports `0007_lab_orders (head)` and the migration seeds the starter list for existing clinics.
+Full regression suite: PASS — `python -m pytest -q` completed with 89 passed and 3 existing dependency deprecation warnings.
 Full regression suite: PASS — `python -m pytest -q` completed with 50 passed and 3 existing dependency deprecation warnings.
 
 ## 2026-09-12 — Prompt 5.T — Scheduling

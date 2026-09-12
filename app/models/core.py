@@ -13,6 +13,7 @@ from typing import Any
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
+    Column,
     Date,
     DateTime,
     Enum as SqlEnum,
@@ -20,6 +21,7 @@ from sqlalchemy import (
     Integer,
     JSON,
     String,
+    Table,
     Text,
     UniqueConstraint,
     func,
@@ -77,6 +79,14 @@ class ProcedureType(str, Enum):
     ENDOMETRIAL_BIOPSY = "endometrial_biopsy"
 
 
+class LabOrderStatus(str, Enum):
+    """Allowed lifecycle values for a laboratory order."""
+
+    ORDERED = "ordered"
+    RESULTED = "resulted"
+    REVIEWED = "reviewed"
+
+
 class AuditAction(str, Enum):
     """Allowed lifecycle actions recorded in the generic audit log."""
 
@@ -97,6 +107,22 @@ def enum_values(enum_type: type[Enum]) -> list[str]:
     """
 
     return [str(member.value) for member in enum_type]
+
+
+lab_order_set_tests = Table(
+    "lab_order_set_tests",
+    Base.metadata,
+    Column(
+        "order_set_id",
+        ForeignKey("lab_order_sets.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "lab_test_definition_id",
+        ForeignKey("lab_test_definitions.id", ondelete="RESTRICT"),
+        primary_key=True,
+    ),
+)
 
 
 class Clinic(SoftDeleteMixin, Base):
@@ -183,6 +209,18 @@ class Clinic(SoftDeleteMixin, Base):
         cascade="save-update, merge",
     )
     phrase_templates: Mapped[list["PhraseTemplate"]] = relationship(
+        back_populates="clinic",
+        cascade="save-update, merge",
+    )
+    lab_test_definitions: Mapped[list["LabTestDefinition"]] = relationship(
+        back_populates="clinic",
+        cascade="save-update, merge",
+    )
+    lab_order_sets: Mapped[list["LabOrderSet"]] = relationship(
+        back_populates="clinic",
+        cascade="save-update, merge",
+    )
+    lab_orders: Mapped[list["LabOrder"]] = relationship(
         back_populates="clinic",
         cascade="save-update, merge",
     )
@@ -292,6 +330,10 @@ class Patient(SoftDeleteMixin, Base):
         cascade="save-update, merge",
     )
     visits: Mapped[list["Visit"]] = relationship(
+        back_populates="patient",
+        cascade="save-update, merge",
+    )
+    lab_orders: Mapped[list["LabOrder"]] = relationship(
         back_populates="patient",
         cascade="save-update, merge",
     )
@@ -468,6 +510,21 @@ class User(SoftDeleteMixin, Base):
     audit_logs: Mapped[list["AuditLog"]] = relationship(
         back_populates="actor_user",
         foreign_keys="AuditLog.actor_user_id",
+    )
+    ordered_lab_orders: Mapped[list["LabOrder"]] = relationship(
+        back_populates="ordered_by_user",
+        foreign_keys="LabOrder.ordered_by_user_id",
+        cascade="save-update, merge",
+    )
+    entered_lab_results: Mapped[list["LabResult"]] = relationship(
+        back_populates="entered_by_user",
+        foreign_keys="LabResult.entered_by_user_id",
+        cascade="save-update, merge",
+    )
+    reviewed_lab_results: Mapped[list["LabResult"]] = relationship(
+        back_populates="reviewed_by_user",
+        foreign_keys="LabResult.reviewed_by_user_id",
+        cascade="save-update, merge",
     )
 
 
@@ -773,6 +830,238 @@ class Visit(SoftDeleteMixin, Base):
     phrase_uses: Mapped[list["VisitPhraseUse"]] = relationship(
         back_populates="visit",
         cascade="save-update, merge",
+    )
+    lab_orders: Mapped[list["LabOrder"]] = relationship(
+        back_populates="visit",
+        cascade="save-update, merge",
+    )
+
+
+class LabTestDefinition(Base):
+    """Represent one clinic-editable laboratory test in the ordering catalog."""
+
+    __tablename__ = "lab_test_definitions"
+    __table_args__ = (
+        UniqueConstraint(
+            "clinic_id",
+            "name",
+            name="uq_lab_test_definitions_clinic_name",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    clinic_id: Mapped[int] = mapped_column(
+        ForeignKey("clinics.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    clinic: Mapped[Clinic] = relationship(back_populates="lab_test_definitions")
+    order_sets: Mapped[list["LabOrderSet"]] = relationship(
+        secondary=lab_order_set_tests,
+        back_populates="test_definitions",
+    )
+    orders: Mapped[list["LabOrder"]] = relationship(
+        back_populates="lab_test_definition",
+        cascade="save-update, merge",
+    )
+
+
+class LabOrderSet(Base):
+    """Represent a named bundle of lab test definitions."""
+
+    __tablename__ = "lab_order_sets"
+    __table_args__ = (
+        UniqueConstraint(
+            "clinic_id",
+            "name",
+            name="uq_lab_order_sets_clinic_name",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    clinic_id: Mapped[int] = mapped_column(
+        ForeignKey("clinics.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    clinic: Mapped[Clinic] = relationship(back_populates="lab_order_sets")
+    test_definitions: Mapped[list[LabTestDefinition]] = relationship(
+        secondary=lab_order_set_tests,
+        back_populates="order_sets",
+    )
+    orders: Mapped[list["LabOrder"]] = relationship(
+        back_populates="order_set",
+        cascade="save-update, merge",
+    )
+
+
+class LabOrder(SoftDeleteMixin, Base):
+    """Represent one ordered test attached to a clinical visit and patient."""
+
+    __tablename__ = "lab_orders"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    clinic_id: Mapped[int] = mapped_column(
+        ForeignKey("clinics.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    visit_id: Mapped[int] = mapped_column(
+        ForeignKey("visits.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    patient_id: Mapped[int] = mapped_column(
+        ForeignKey("patients.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    lab_test_definition_id: Mapped[int] = mapped_column(
+        ForeignKey("lab_test_definitions.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    order_set_id: Mapped[int | None] = mapped_column(
+        ForeignKey("lab_order_sets.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    status: Mapped[LabOrderStatus] = mapped_column(
+        SqlEnum(
+            LabOrderStatus,
+            name="lab_order_status",
+            values_callable=enum_values,
+        ),
+        nullable=False,
+        default=LabOrderStatus.ORDERED,
+        server_default=LabOrderStatus.ORDERED.value,
+        index=True,
+    )
+    ordered_by_user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    ordered_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    clinic: Mapped[Clinic] = relationship(back_populates="lab_orders")
+    visit: Mapped[Visit] = relationship(back_populates="lab_orders")
+    patient: Mapped[Patient] = relationship(back_populates="lab_orders")
+    lab_test_definition: Mapped[LabTestDefinition] = relationship(
+        back_populates="orders",
+    )
+    order_set: Mapped[LabOrderSet | None] = relationship(back_populates="orders")
+    ordered_by_user: Mapped["User"] = relationship(
+        foreign_keys=[ordered_by_user_id],
+    )
+    result: Mapped["LabResult | None"] = relationship(
+        back_populates="lab_order",
+        uselist=False,
+        cascade="save-update, merge",
+    )
+
+
+class LabResult(Base):
+    """Store one manual or file lab result and optional physician sign-off."""
+
+    __tablename__ = "lab_results"
+    __table_args__ = (
+        CheckConstraint(
+            "(manual_value IS NOT NULL AND length(trim(manual_value)) > 0) "
+            "OR file_path IS NOT NULL",
+            name="ck_lab_results_has_value_or_file",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    lab_order_id: Mapped[int] = mapped_column(
+        ForeignKey("lab_orders.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    manual_value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    file_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    original_filename: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    content_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    file_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    entered_by_user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    reviewed_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    lab_order: Mapped[LabOrder] = relationship(back_populates="result")
+    entered_by_user: Mapped["User"] = relationship(
+        foreign_keys=[entered_by_user_id],
+    )
+    reviewed_by_user: Mapped["User | None"] = relationship(
+        foreign_keys=[reviewed_by_user_id],
     )
 
 

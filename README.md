@@ -281,6 +281,44 @@ After a visit saves, the screen offers three next actions: schedule a follow-up,
 mark done, or skip. Schedule follow-up returns to the scheduling workspace with
 the patient selected.
 
+## Lab Orders
+
+Lab ordering is clinic-scoped and starts from a saved visit. The visit workspace
+opens an HTMX slide-over so clinicians can order individual tests or a named
+`LabOrderSet` without leaving the note. A starter catalog includes CBC,
+urinalysis, glucose screen, Rh/blood type, STI panel, Pap/HPV, and TSH.
+`clinic_admin` users can edit the active catalog and maintain order-set
+membership at `/admin/labs`.
+
+Each `LabOrder` belongs to the visit and patient and moves through three
+deliberately separate states:
+
+1. `ordered` — the test is outstanding and appears in `/labs/pending`.
+2. `resulted` — a clinician entered a manual value or uploaded a result file.
+3. `reviewed` — a physician signed off the result with `reviewed_by` and
+   `reviewed_at`. A resulted value is not treated as reviewed automatically.
+
+Lab result files are private application data. They are not placed under
+`/static`, and the database stores only a server-generated filename plus
+original display metadata. The server rejects files above 10 MB, extensions
+outside PDF/PNG/JPEG/WEBP, content types that do not match the extension, and
+files whose magic bytes do not match the declared type. Stored directories use
+0700 permissions and files use 0600 permissions when the filesystem supports
+those modes. Download routes resolve the generated path beneath the configured
+private root and require a clinical role in the same clinic before returning
+the file with `nosniff` protection. The root defaults to `var/lab_results` and
+can be changed with `LAB_UPLOAD_DIR`; mount that directory on a persistent
+Docker volume for deployments where result files must survive container
+replacement.
+
+## Lab schema sequencing
+
+`0007_lab_orders` creates the clinic test catalog, order sets, order-set
+membership, soft-deletable lab orders, result metadata, review sign-off fields,
+and the PostgreSQL lab status enum. It also seeds the starter test list for
+clinics that already exist. New clinics are lazily seeded on first lab catalog
+access so the same behavior works for local and Docker-created tenants.
+
 ## Clinical schema sequencing
 
 `0005_clinical_documentation` creates the pregnancy, visit, diagnosis,

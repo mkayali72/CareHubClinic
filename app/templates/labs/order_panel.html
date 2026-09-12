@@ -1,0 +1,76 @@
+<div class="fixed inset-y-0 right-0 z-50 w-full max-w-xl overflow-y-auto border-l border-slate-200 bg-white p-6 shadow-2xl">
+  <div class="flex items-start justify-between gap-4">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">Lab orders</p>
+      <h3 class="mt-1 text-2xl font-semibold text-slate-950">Order for this visit</h3>
+      <p class="mt-1 text-sm text-slate-500">Orders remain attached to {{ visit.patient.name }} and visit #{{ visit.id }}.</p>
+    </div>
+    <button class="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50" type="button" onclick="document.getElementById('lab-order-panel').innerHTML = ''">Close</button>
+  </div>
+
+  {% if message %}<div class="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{{ message }}</div>{% endif %}
+  {% if error %}<div class="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">{{ error }}</div>{% endif %}
+
+  <form class="mt-6 space-y-5" method="post" action="/visits/{{ visit.id }}/labs/orders" hx-post="/visits/{{ visit.id }}/labs/orders" hx-target="#lab-order-panel" hx-swap="innerHTML">
+    <div>
+      <p class="text-sm font-semibold text-slate-900">Order individual tests</p>
+      <div class="mt-3 grid gap-2 sm:grid-cols-2">
+        {% for definition in lab_definitions %}
+          <label class="flex gap-3 rounded-xl border border-slate-200 p-3 text-sm hover:border-indigo-300">
+            <input class="mt-1 rounded border-slate-300 text-indigo-600" type="checkbox" name="definition_ids" value="{{ definition.id }}" />
+            <span><strong class="text-slate-900">{{ definition.name }}</strong><span class="mt-1 block text-xs text-slate-500">{{ definition.description }}</span></span>
+          </label>
+        {% endfor %}
+      </div>
+    </div>
+    <div>
+      <label class="text-sm font-semibold text-slate-900">Or order a bundle
+        <select class="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" name="order_set_id">
+          <option value="">Select an order set</option>
+          {% for order_set in lab_order_sets %}
+            <option value="{{ order_set.id }}">{{ order_set.name }} · {{ order_set.test_definitions|length }} tests</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <button class="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700" type="submit">Create lab orders</button>
+  </form>
+
+  <section class="mt-8 border-t border-slate-100 pt-6">
+    <div class="flex items-center justify-between gap-3">
+      <div><p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">This visit</p><h4 class="mt-1 text-xl font-semibold text-slate-950">Order and result status</h4></div>
+      <a class="text-xs font-semibold text-indigo-700 hover:text-indigo-900" href="/labs/pending">Pending labs</a>
+    </div>
+    {% if lab_orders %}
+      <div class="mt-4 space-y-4">
+        {% for order in lab_orders %}
+          <div class="rounded-2xl border border-slate-200 p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div><p class="font-semibold text-slate-900">{{ order.lab_test_definition.name }}</p>{% if order.order_set %}<p class="mt-1 text-xs text-slate-500">From {{ order.order_set.name }}</p>{% endif %}</div>
+              <span class="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase {% if order.status.value == 'reviewed' %}bg-emerald-100 text-emerald-800{% elif order.status.value == 'resulted' %}bg-amber-100 text-amber-800{% else %}bg-slate-100 text-slate-600{% endif %}">{{ order.status.value }}</span>
+            </div>
+            {% if order.result %}
+              <div class="mt-3 rounded-xl bg-slate-50 p-3 text-sm">
+                {% if order.result.manual_value %}<p class="whitespace-pre-wrap text-slate-800">{{ order.result.manual_value }}</p>{% endif %}
+                {% if order.result.file_path %}<a class="mt-2 inline-block font-semibold text-indigo-700 hover:text-indigo-900" href="/lab-results/{{ order.result.id }}/file">Download {{ order.result.original_filename }}</a>{% endif %}
+                {% if order.result.reviewed_at %}<p class="mt-2 text-xs text-emerald-700">Reviewed {{ order.result.reviewed_at.strftime("%b %-d, %Y %H:%M") }}{% if order.result.reviewed_by_user %} by {{ order.result.reviewed_by_user.full_name }}{% endif %}</p>{% elif user.role.value == 'physician' %}<form class="mt-3" method="post" action="/lab-results/{{ order.result.id }}/review" hx-post="/lab-results/{{ order.result.id }}/review" hx-target="#lab-order-panel" hx-swap="innerHTML"><button class="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800" type="submit">Physician review and sign off</button></form>{% else %}<p class="mt-2 text-xs font-semibold text-amber-700">Resulted · awaiting physician review</p>{% endif %}
+              </div>
+            {% elif order.status.value == 'ordered' %}
+              <form class="mt-4 space-y-2" method="post" action="/lab-orders/{{ order.id }}/result" hx-post="/lab-orders/{{ order.id }}/result" hx-target="#lab-order-panel" hx-swap="innerHTML" enctype="multipart/form-data">
+                <label class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Manual result
+                  <textarea class="mt-1.5 min-h-16 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" name="manual_value" placeholder="Enter a value or use the file field below"></textarea>
+                </label>
+                <label class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Or upload PDF/image (max 10 MB)
+                  <input class="mt-1.5 block w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" type="file" name="result_file" accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp" />
+                </label>
+                <button class="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100" type="submit">Save result</button>
+              </form>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="mt-4 text-sm text-slate-500">No lab orders on this visit yet.</p>
+    {% endif %}
+  </section>
+</div>
