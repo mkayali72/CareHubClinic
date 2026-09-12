@@ -69,6 +69,9 @@
                   {% for item in visit_types %}<option value="{{ item.value }}" {% if visit_values.visit_type == item.value %}selected{% endif %}>{{ item.value|replace("_", " ")|title }}</option>{% endfor %}
                 </select>
               </label>
+              <label class="text-sm font-medium text-slate-700">Visit date
+                <input class="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" name="visit_date" type="date" value="{{ visit_values.visit_date }}" required />
+              </label>
               <label id="episode-field" class="text-sm font-medium text-slate-700">Pregnancy episode
                 <select class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" name="pregnancy_episode_id">
                   <option value="">Select episode for prenatal visit</option>
@@ -210,7 +213,7 @@
             <div class="mt-5 space-y-3">
               {% for amendment in visit.amendments %}
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Amendment · {{ amendment.created_at.strftime("%b %-d, %Y %H:%M") }}</p>
+                  <p class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Amendment · {{ amendment.created_at.strftime("%b %-d, %Y %H:%M") }} · {{ amendment.amended_by_user.full_name }}</p>
                   <p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{{ amendment.content }}</p>
                 </div>
               {% endfor %}
@@ -240,6 +243,13 @@
                   </div>
                   <p class="mt-1 text-xs text-slate-500">EDD {{ (episode.corrected_edd or episode.edd).strftime("%b %-d, %Y") }}</p>
                   {% if selected_episode and selected_episode.id == episode.id %}<p class="mt-2 text-sm font-semibold text-indigo-800">{{ selected_episode_age.display }} gestational age</p>{% endif %}
+                  {% if episode.delivery_outcome %}
+                    <div class="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                      <p class="text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700">Delivery outcome</p>
+                      <p class="mt-1 text-sm font-semibold text-emerald-950">{{ episode.delivery_outcome.delivery_date.strftime("%b %-d, %Y") }} · {{ episode.delivery_outcome.mode|title }}</p>
+                      <p class="mt-1 text-xs text-emerald-900">{{ episode.delivery_outcome.birth_weight_grams or "—" }} g · Apgar {{ episode.delivery_outcome.apgar_one_minute or "—" }}/{{ episode.delivery_outcome.apgar_five_minutes or "—" }}</p>
+                    </div>
+                  {% endif %}
                 </div>
               {% endfor %}
             </div>
@@ -348,7 +358,7 @@
         <div><p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">History</p><h3 class="mt-1 text-xl font-semibold text-slate-950">Saved visits</h3></div>
       </div>
       {% if visits %}
-        <div class="mt-4 grid gap-3 md:grid-cols-2">{% for saved_visit in visits %}<a class="rounded-2xl border {% if visit and visit.id == saved_visit.id %}border-indigo-300 bg-indigo-50{% else %}border-slate-200{% endif %} p-4 hover:border-indigo-300" href="/visits/{{ saved_visit.id }}"><div class="flex items-start justify-between gap-3"><p class="font-semibold text-slate-900">{{ saved_visit.visit_type.value|replace("_", " ")|title }}</p><span class="text-xs text-slate-400">{{ saved_visit.created_at.strftime("%b %-d, %Y") }}</span></div><p class="mt-2 text-sm text-slate-500">{% for link in saved_visit.diagnosis_links %}{{ link.diagnosis_code.code }}{% if not loop.last %}, {% endif %}{% else %}No diagnosis codes{% endfor %}</p></a>{% endfor %}</div>
+        <div class="mt-4 grid gap-3 md:grid-cols-2">{% for saved_visit in visits %}<a class="rounded-2xl border {% if visit and visit.id == saved_visit.id %}border-indigo-300 bg-indigo-50{% else %}border-slate-200{% endif %} p-4 hover:border-indigo-300" href="/visits/{{ saved_visit.id }}"><div class="flex items-start justify-between gap-3"><p class="font-semibold text-slate-900">{{ saved_visit.visit_type.value|replace("_", " ")|title }}</p><span class="text-xs text-slate-400">{{ saved_visit.visit_date.strftime("%b %-d, %Y") }}</span></div><p class="mt-2 text-sm text-slate-500">{% for link in saved_visit.diagnosis_links %}{{ link.diagnosis_code.code }}{% if not loop.last %}, {% endif %}{% else %}No diagnosis codes{% endfor %}</p></a>{% endfor %}</div>
       {% else %}<p class="mt-4 text-sm text-slate-500">No saved visit notes yet.</p>{% endif %}
     </section>
   </div>

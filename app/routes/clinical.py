@@ -129,6 +129,7 @@ def _visit_values(visit: Visit | None) -> dict[str, Any]:
     if visit is None:
         return {
             "visit_type": VisitType.PRENATAL.value,
+            "visit_date": date.today().isoformat(),
             "pregnancy_episode_id": "",
             "blood_pressure": "",
             "weight_kg": "",
@@ -155,6 +156,7 @@ def _visit_values(visit: Visit | None) -> dict[str, Any]:
     gyn = visit.gyn_data or {}
     return {
         "visit_type": visit.visit_type.value,
+        "visit_date": visit.visit_date.isoformat(),
         "pregnancy_episode_id": visit.pregnancy_episode_id or "",
         "blood_pressure": visit.vitals.get("blood_pressure", ""),
         "weight_kg": visit.vitals.get("weight_kg") or "",
@@ -193,8 +195,10 @@ def _clinical_context(
 
     patient = _patient_or_404(db, patient_id, user)
     episodes = get_patient_episodes(db, user, patient.id)
-    selected_episode = visit.pregnancy_episode if visit else (
-        episodes[0] if episodes else None
+    selected_episode = (
+        visit.pregnancy_episode
+        if visit is not None
+        else (episodes[0] if episodes else None)
     )
     return {
         "request": request,
@@ -212,9 +216,13 @@ def _clinical_context(
         ),
         "trend": pregnancy_trend(db, selected_episode) if selected_episode else [],
         "reminders": (
-            screening_reminders(db, selected_episode)
+            screening_reminders(
+                db,
+                selected_episode,
+                visit_type=visit.visit_type if visit else None,
+            )
             if selected_episode and selected_episode.status is PregnancyEpisodeStatus.ACTIVE
-            else []
+            else [],
         ),
         "diagnosis_codes": get_diagnosis_codes(db, user.clinic_id),
         "phrase_templates": get_phrase_templates(db, user.clinic_id),
@@ -273,6 +281,7 @@ def visit_detail(
 
 def _visit_form_payload(
     visit_type: str,
+    visit_date: date | None,
     pregnancy_episode_id: int | None,
     blood_pressure: str,
     weight_kg: str,
@@ -298,6 +307,7 @@ def _visit_form_payload(
 
     return {
         "visit_type": _visit_type(visit_type),
+        "visit_date": visit_date,
         "pregnancy_episode_id": pregnancy_episode_id,
         "vitals": {
             "blood_pressure": blood_pressure,
@@ -332,6 +342,7 @@ def create_visit_route(
     request: Request,
     patient_id: int = Form(...),
     visit_type: str = Form(...),
+    visit_date: date | None = Form(None),
     pregnancy_episode_id: int | None = Form(None),
     blood_pressure: str = Form(""),
     weight_kg: str = Form(""),
@@ -359,6 +370,7 @@ def create_visit_route(
 
     payload = _visit_form_payload(
         visit_type,
+        visit_date,
         pregnancy_episode_id,
         blood_pressure,
         weight_kg,
@@ -394,6 +406,7 @@ def update_visit_route(
     request: Request,
     visit_id: int,
     visit_type: str = Form(...),
+    visit_date: date | None = Form(None),
     pregnancy_episode_id: int | None = Form(None),
     blood_pressure: str = Form(""),
     weight_kg: str = Form(""),
@@ -422,6 +435,7 @@ def update_visit_route(
     visit = _visit_or_404(db, visit_id, current_user)
     payload = _visit_form_payload(
         visit_type,
+        visit_date,
         pregnancy_episode_id,
         blood_pressure,
         weight_kg,

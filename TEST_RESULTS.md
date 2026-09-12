@@ -90,6 +90,29 @@ Test 8: PASS — Verified physician welcome pages show the signed-in physician's
 Test 9: PASS — Verified patient, physician, and appointment-type references from another clinic are rejected with no appointment created.
 Migration: PASS — Applied `0004_scheduling` and confirmed it is the Alembic database head.
 Workflow: PASS — Restarted the OB-GYN Clinic App workflow; local `/health` returned `{"status":"ok","database":"ok"}` and `/login` returned HTTP 200.
+
+## 2026-09-12 — Prompt 6.T — Clinical Visit Documentation
+
+Test 63: PASS — Created prenatal, gyn_annual, postpartum, and problem_focused visits and confirmed shared vitals persist while only the correct type-specific structured section is populated.
+Test 64: PASS — Verified gestational age at early pregnancy, near-term dating, and after a corrected EDD is applied; corrected dating changes the calculated gestational age while the original EDD remains stored.
+Test 65: PASS — Saved and reloaded ultrasound EFW, AFI, placenta location, presentation, and biometry in the prenatal structured section.
+Test 66: PASS — Created prenatal visits out of entry order and confirmed trend data is ordered by explicit visit date and includes every visit.
+Test 67: PASS — Confirmed glucose, Rhogam, and Group B Strep reminders trigger at the appropriate gestational age, do not appear too early, and are suppressed for gyn_annual visits.
+Test 68: PASS — Dismissed a screening reminder and confirmed only the audited UI dismissal is stored; no screening completion state or clinical visit is created.
+Test 69: PASS — Created two pregnancy episodes for one patient and confirmed each episode's visit history and trend contain only its own prenatal visits.
+Test 70: PASS — Created a delivery outcome and confirmed it remains linked to the episode and is rendered alongside that episode's clinical visit context.
+Test 71: PASS — Confirmed an invalid ICD-10 identifier is rejected while a valid structured diagnosis saves and renders on the visit.
+Test 72: PASS — Created a phrase as one physician, inserted it as another physician in the same clinic, edited the template, and confirmed the saved note retains the original text snapshot.
+Test 73: PASS — Attempted a direct HTTP update after the lock window elapsed and confirmed the API rejected the edit while preserving the original note.
+Test 74: PASS — Added an amendment to a locked visit and confirmed the original content remains unchanged while the amendment shows its content, author, and timestamp.
+Test 75: PASS — Created IUD insertion, IUD removal, colposcopy, and endometrial biopsy procedure records and confirmed each is linked to the correct visit.
+Test 76: PASS — Saved a partial problem-focused note with only available fields and confirmed the entered values persisted without requiring unrelated fields.
+Migration: PASS — Added and applied `0006_visit_dates` after `0005_clinical_documentation`; Alembic reports the new migration at head.
+Prompt 3.T regression: PASS — Re-ran foundation tests as part of the combined regression command; all foundation cases passed.
+Prompt 4.T regression: PASS — Re-ran patient tests as part of the combined regression command; all patient cases passed.
+Prompt 5.T regression: PASS — Re-ran scheduling tests as part of the combined regression command; all scheduling cases passed.
+Clinical suite: PASS — `python -m pytest -q tests/test_clinical.py` completed with 29 passed and 2 existing dependency deprecation warnings.
+Combined regression: PASS — `python -m pytest -q tests/test_foundation.py tests/test_patients.py tests/test_scheduling.py tests/test_clinical.py` completed with 82 passed and 3 existing dependency deprecation warnings.
 Full regression suite: PASS — `python -m pytest -q` completed with 50 passed and 3 existing dependency deprecation warnings.
 
 ## 2026-09-12 — Prompt 5.T — Scheduling

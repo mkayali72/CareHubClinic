@@ -272,9 +272,10 @@ The pregnancy workspace calculates prompts for glucose tolerance testing
 (36–37 weeks). Prompts become overdue after their window and can be dismissed;
 dismissal is audited and is not a screening-completion record.
 
-The lightweight trend view uses saved prenatal visits to show recorded weight
-over time. Each note retains fundal height and blood pressure for clinical
-review without adding a heavy charting dependency.
+The lightweight trend view uses the explicit clinical visit date—not database
+entry order—to show recorded weight over time. Each note retains fundal height
+and blood pressure for clinical review without adding a heavy charting
+dependency. Gyn annual visits do not show prenatal screening prompts.
 
 After a visit saves, the screen offers three next actions: schedule a follow-up,
 mark done, or skip. Schedule follow-up returns to the scheduling workspace with
@@ -284,7 +285,8 @@ the patient selected.
 
 `0005_clinical_documentation` creates the pregnancy, visit, diagnosis,
 amendment, procedure, delivery, phrase, and reminder tables and seeds common
-ICD-10 choices. Apply it with:
+ICD-10 choices. `0006_visit_dates` adds the explicit date used for visit
+history and pregnancy trend ordering. Apply both with:
 
 ```bash
 alembic upgrade head

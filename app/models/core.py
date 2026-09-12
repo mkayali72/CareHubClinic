@@ -711,6 +711,12 @@ class Visit(SoftDeleteMixin, Base):
         nullable=False,
         index=True,
     )
+    visit_date: Mapped[date] = mapped_column(
+        Date,
+        nullable=False,
+        server_default=func.current_date(),
+        index=True,
+    )
     vitals: Mapped[dict[str, Any]] = mapped_column(
         JSON,
         nullable=False,

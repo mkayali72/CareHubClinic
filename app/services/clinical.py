@@ -105,10 +105,12 @@ def gestational_age(
     episode: PregnancyEpisode,
     on_date: date | None = None,
 ) -> dict[str, Any]:
-    """Calculate gestational age from LMP and expose display-friendly values."""
+    """Calculate gestational age using the episode's effective dating."""
 
     target_date = on_date or date.today()
-    total_days = max(0, (target_date - episode.lmp).days)
+    # Once ultrasound dating is accepted, the corrected EDD becomes the
+    # reference point for gestational age while preserving the original LMP.
+    total_days = max(0, 280 - (effective_edd(episode) - target_date).days)
     weeks, days = divmod(total_days, 7)
     return {
         "weeks": weeks,
@@ -338,6 +340,7 @@ def create_visit(
     assessment: str,
     plan: str,
     diagnosis_code_ids: Iterable[int],
+    visit_date: date | None = None,
 ) -> Visit:
     """Create a structured, clinic-scoped visit note."""
 
@@ -367,6 +370,7 @@ def create_visit(
         patient=patient,
         pregnancy_episode=episode,
         visit_type=visit_type,
+        visit_date=visit_date or date.today(),
         vitals=normalized[0],
         prenatal_data=normalized[1],
         gyn_data=normalized[2],
@@ -442,7 +446,7 @@ def get_patient_visits(
                 Visit.clinic_id == user.clinic_id,
                 Visit.patient_id == patient_id,
             )
-            .order_by(Visit.created_at.desc(), Visit.id.desc())
+            .order_by(Visit.visit_date.desc(), Visit.id.desc())
         )
     )
 
@@ -480,6 +484,7 @@ def update_visit(
     assessment: str,
     plan: str,
     diagnosis_code_ids: Iterable[int],
+    visit_date: date | None = None,
 ) -> Visit:
     """Update an unlocked visit note and its structured diagnosis links."""
 
@@ -511,6 +516,7 @@ def update_visit(
     changes: list[str] = []
     for field, value in (
         ("visit_type", visit_type),
+        ("visit_date", visit_date or date.today()),
         ("pregnancy_episode", episode),
         ("vitals", sections[0]),
         ("prenatal_data", sections[1]),
@@ -846,12 +852,12 @@ def pregnancy_trend(
                 Visit.pregnancy_episode_id == episode.id,
                 Visit.visit_type == VisitType.PRENATAL,
             )
-            .order_by(Visit.created_at.asc(), Visit.id.asc())
+            .order_by(Visit.visit_date.asc(), Visit.id.asc())
         )
     )
     return [
         {
-            "date": visit.created_at.date().isoformat() if visit.created_at else "",
+            "date": visit.visit_date.isoformat(),
             "weight_kg": visit.vitals.get("weight_kg"),
             "blood_pressure": visit.vitals.get("blood_pressure", ""),
             "fundal_height_cm": visit.prenatal_data.get("fundal_height_cm"),
@@ -864,9 +870,12 @@ def screening_reminders(
     db: Session,
     episode: PregnancyEpisode,
     on_date: date | None = None,
+    visit_type: VisitType | None = None,
 ) -> list[dict[str, Any]]:
     """Calculate trimester screening prompts without marking tests complete."""
 
+    if visit_type is not None and visit_type is not VisitType.PRENATAL:
+        return []
     age = gestational_age(episode, on_date)
     dismissed = {
         dismissal.reminder_key
