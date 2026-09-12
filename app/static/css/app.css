@@ -3,11 +3,43 @@
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
+  --app-bg: #f6f8fb;
+  --app-text: #172033;
+  --app-surface: #ffffff;
+  --app-border: #e2e8f0;
+  --app-muted-surface: #f8fafc;
+  --app-focus: #4f46e5;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --app-bg: #0f172a;
+  --app-text: #e2e8f0;
+  --app-surface: #111827;
+  --app-border: #334155;
+  --app-muted-surface: #1e293b;
+  --app-focus: #a5b4fc;
+}
+
+html[data-font-size="small"] {
+  font-size: 93.75%;
+}
+
+html[data-font-size="large"] {
+  font-size: 112.5%;
 }
 
 body {
-  background: #f6f8fb;
-  color: #172033;
+  background: var(--app-bg);
+  color: var(--app-text);
+}
+
+.login-page {
+  background: #0f172a;
+}
+
+body.menu-open {
+  overflow: hidden;
 }
 
 .sidebar-link {
@@ -19,4 +51,251 @@ body {
 .sidebar-link:hover {
   background: #eef2ff;
   color: #4338ca;
+}
+
+.touch-target {
+  min-height: 44px;
+}
+
+button,
+select,
+input:not([type="checkbox"]):not([type="radio"]),
+textarea {
+  min-height: 44px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--app-focus);
+  outline-offset: 2px;
+}
+
+.mobile-sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 60;
+  display: flex;
+  width: min(86vw, 22rem);
+  flex-direction: column;
+  overflow-y: auto;
+  background: var(--app-surface);
+  box-shadow: 20px 0 48px rgb(15 23 42 / 18%);
+  transform: translateX(-105%);
+  transition: transform 180ms ease;
+}
+
+.mobile-sidebar[data-open="true"] {
+  transform: translateX(0);
+}
+
+.mobile-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: rgb(15 23 42 / 55%);
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.mobile-menu-backdrop[data-open="true"] {
+  opacity: 1;
+}
+
+.mobile-slide-over {
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 639px) {
+  .mobile-slide-over {
+    inset: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    border: 0 !important;
+    padding: 1rem !important;
+  }
+
+  .utility-controls {
+    max-width: 58vw;
+  }
+}
+
+@media (min-width: 1024px) {
+  .mobile-sidebar,
+  .mobile-menu-backdrop {
+    display: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* The existing templates use Tailwind utility colors. These semantic overrides
+   keep those screens coherent when the shared theme is switched. */
+html[data-theme="dark"] .bg-white {
+  background-color: var(--app-surface) !important;
+}
+
+html[data-theme="dark"] .login-page {
+  background: #020617;
+}
+
+html[data-theme="dark"] .bg-slate-50,
+html[data-theme="dark"] [class*="bg-slate-50"] {
+  background-color: var(--app-muted-surface) !important;
+}
+
+html[data-theme="dark"] [class*="bg-indigo-50"] {
+  background-color: #1e1b4b !important;
+}
+
+html[data-theme="dark"] [class*="bg-emerald-50"] {
+  background-color: #052e2b !important;
+}
+
+html[data-theme="dark"] [class*="bg-fuchsia-50"] {
+  background-color: #3b0764 !important;
+}
+
+html[data-theme="dark"] [class*="bg-amber-50"] {
+  background-color: #451a03 !important;
+}
+
+html[data-theme="dark"] [class*="bg-rose-50"] {
+  background-color: #4c0519 !important;
+}
+
+html[data-theme="dark"] [class~="text-slate-950"],
+html[data-theme="dark"] [class~="text-slate-900"],
+html[data-theme="dark"] [class~="text-slate-800"] {
+  color: #f8fafc !important;
+}
+
+html[data-theme="dark"] [class~="text-slate-700"],
+html[data-theme="dark"] [class~="text-slate-600"] {
+  color: #cbd5e1 !important;
+}
+
+html[data-theme="dark"] [class~="text-slate-500"],
+html[data-theme="dark"] [class~="text-slate-400"] {
+  color: #94a3b8 !important;
+}
+
+html[data-theme="dark"] [class~="border-slate-100"],
+html[data-theme="dark"] [class~="border-slate-200"],
+html[data-theme="dark"] [class~="border-slate-300"] {
+  border-color: var(--app-border) !important;
+}
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea {
+  border-color: #475569;
+  background-color: #0f172a;
+  color: #f8fafc;
+}
+
+html[data-theme="dark"] [class~="text-indigo-700"],
+html[data-theme="dark"] [class~="text-indigo-600"] {
+  color: #a5b4fc !important;
+}
+
+html[data-theme="dark"] [class~="text-indigo-950"] {
+  color: #e0e7ff !important;
+}
+
+html[data-theme="dark"] [class~="text-emerald-700"],
+html[data-theme="dark"] [class~="text-emerald-800"] {
+  color: #6ee7b7 !important;
+}
+
+html[data-theme="dark"] [class~="text-amber-800"],
+html[data-theme="dark"] [class~="text-amber-900"],
+html[data-theme="dark"] [class~="text-amber-950"] {
+  color: #fcd34d !important;
+}
+
+html[data-theme="dark"] [class~="text-fuchsia-700"],
+html[data-theme="dark"] [class~="text-fuchsia-800"],
+html[data-theme="dark"] [class~="text-fuchsia-950"] {
+  color: #f0abfc !important;
+}
+
+html[data-theme="dark"] [class~="text-rose-700"],
+html[data-theme="dark"] [class~="text-rose-800"],
+html[data-theme="dark"] [class~="text-rose-900"] {
+  color: #fda4af !important;
+}
+
+html[data-theme="dark"] .sidebar-link:hover {
+  background: #312e81;
+  color: #eef2ff;
+}
+
+html[data-theme="dark"] [class~="hover:bg-slate-50"]:hover,
+html[data-theme="dark"] [class~="hover:bg-white"]:hover {
+  background-color: #273449 !important;
+}
+
+html[data-theme="dark"] [class~="divide-slate-100"] > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--app-border) !important;
+}
+
+html[data-contrast="high"] body {
+  background: #ffffff;
+  color: #000000;
+}
+
+html[data-contrast="high"] [class~="bg-white"],
+html[data-contrast="high"] [class~="bg-slate-50"] {
+  background-color: #ffffff !important;
+}
+
+html[data-contrast="high"] [class~="text-slate-950"],
+html[data-contrast="high"] [class~="text-slate-900"],
+html[data-contrast="high"] [class~="text-slate-800"],
+html[data-contrast="high"] [class~="text-slate-700"],
+html[data-contrast="high"] [class~="text-slate-600"],
+html[data-contrast="high"] [class~="text-slate-500"] {
+  color: #000000 !important;
+}
+
+html[data-contrast="high"] [class*="border-"] {
+  border-color: #000000 !important;
+}
+
+html[data-contrast="high"] input,
+html[data-contrast="high"] select,
+html[data-contrast="high"] textarea {
+  border-color: #000000 !important;
+  color: #000000 !important;
+  background: #ffffff !important;
+}
+
+html[data-theme="dark"][data-contrast="high"] body,
+html[data-theme="dark"][data-contrast="high"] [class~="bg-white"],
+html[data-theme="dark"][data-contrast="high"] [class~="bg-slate-50"] {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="dark"][data-contrast="high"] [class*="text-"] {
+  color: #ffffff !important;
+}
+
+html[data-theme="dark"][data-contrast="high"] input,
+html[data-theme="dark"][data-contrast="high"] select,
+html[data-theme="dark"][data-contrast="high"] textarea {
+  border-color: #ffffff !important;
+  color: #ffffff !important;
+  background: #000000 !important;
 }

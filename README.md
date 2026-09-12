@@ -520,6 +520,42 @@ alembic upgrade head
 Clinical and financial records remain clinic-scoped, auditable, and portable to
 Docker Desktop.
 
+## Responsive layout, theming, and accessibility
+
+The shared Jinja shell is responsive without adding a frontend build system:
+
+- **Below 1024px (`lg`)** the desktop sidebar is replaced by a hamburger button,
+  a focusable slide-out navigation drawer, and a dismissible backdrop. The
+  drawer closes with its close button, a navigation link, the backdrop, or the
+  Escape key.
+- **Below 768px (`md`)** the scheduling time grid becomes a physician-grouped
+  mobile agenda. The wider grid remains available from tablet width upward
+  inside a horizontal scroll container so no appointment columns are clipped.
+- **Below 640px (`sm`)** lab, prescription, and billing slide-over panels become
+  full-screen modal surfaces. At larger widths they remain right-side panels
+  capped at 36rem.
+- Shared controls and form fields use approximately 44px minimum touch targets.
+  Tables retain an intentional horizontal scroll region where a dense tabular
+  layout is more useful than hiding columns.
+
+Display preferences are stored locally in the browser and apply to the shared
+shell, login page, calendar, visit note, panels, tables, and administrative
+screens:
+
+- **Dark mode** uses the `data-theme="dark"` attribute plus CSS semantic
+  overrides for the existing Tailwind utility palette.
+- **Text size** offers small, normal, and large settings through the
+  `data-font-size` attribute. The large setting scales the rem-based interface
+  without changing stored clinical values.
+- **High contrast** uses `data-contrast="high"` to strengthen text, borders,
+  focus rings, and input contrast. These settings are enhancements and do not
+  replace browser or operating-system accessibility settings.
+
+The behavior is implemented with the small vanilla script at
+`app/static/js/app.js` and shared styling at `app/static/css/app.css`. Confirm
+the manual mobile checklist in `TESTING.md` on physical iOS Safari and Android
+Chrome before treating touch behavior as production-verified.
+
 ## Development documentation
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) — coding conventions, module organization,

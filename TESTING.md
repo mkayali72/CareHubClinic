@@ -496,3 +496,55 @@ testing. Use `APP_ENV=production` for the production-response checks.
       production service that can process ePHI.
 - [ ] For Test 44, verify non-production databases and support exports contain
       synthetic fixtures only and document the sanitization process.
+
+## 2026-09-12 — Responsive, mobile, and accessibility pass
+
+Start the documented FastAPI workflow and sign in with representative
+`physician`, `front_desk`, `billing_clerk`, and `clinic_admin` accounts. Use the
+browser responsive tools at 375px, 390px, 412px, 768px, and 1024px widths:
+
+- [ ] Below **1024px**, confirm the desktop sidebar is replaced by a hamburger
+      button. Open it, confirm the slide-out menu and backdrop do not clip the
+      viewport, navigate from it, close it with the close button, and close it
+      with Escape. Confirm the page behind it cannot scroll while it is open.
+- [ ] At phone width, confirm the page header, title, accessibility controls,
+      license banner, cards, forms, and tables do not create unintended
+      horizontal page scrolling. Dense tables may use their own horizontal
+      scroll region.
+- [ ] Open the visit note at `/visits/patients/{patient_id}`. Confirm the note
+      form, vitals, prenatal/gyn sections, diagnosis choices, pregnancy cards,
+      draft-preservation behavior, saved-visit history, and action buttons remain
+      usable at phone width.
+- [ ] From a saved visit, open **Open lab ordering panel**. Confirm it becomes a
+      full-screen modal below 640px, scrolls independently, keeps its Close
+      control reachable, and allows selecting tests, ordering a bundle, entering
+      a result, and returning to the note.
+- [ ] From the same visit, open **Open prescription panel**. Confirm the
+      medication selector, three direction fields, safety warnings,
+      acknowledgment checkboxes, history, print link, and full-screen Close
+      control remain usable without clipped content.
+- [ ] When Billing is enabled, open the visit charge-entry panel at phone width
+      and confirm it uses the same full-screen modal behavior.
+- [ ] Open `/schedule` at phone width. Confirm the physician-grouped mobile
+      agenda shows every appointment with time, patient, type, and status as a
+      tappable card. At tablet/desktop width, confirm the full time grid remains
+      available and can scroll horizontally when there are many physicians.
+- [ ] Exercise Previous, Today, and Next schedule navigation, queue actions,
+      patient tabs, reports, labs, prescriptions, billing, licensing, and admin
+      forms at phone width. Confirm each primary action remains visible and
+      tappable without relying on hover.
+- [ ] Confirm primary buttons, close controls, menu links, appointment cards,
+      checkboxes, selects, and form fields have comfortable touch targets and
+      visible keyboard focus indicators.
+- [ ] Toggle **Dark**, **Contrast**, and each text-size option from the shared
+      header. Confirm the setting applies consistently to the visit note,
+      calendar, panels, tables, login page, and admin screens, survives a page
+      reload, and preserves readable status colors and focus indicators.
+- [ ] Test with browser zoom and the platform text-size setting. Confirm large
+      text reflows instead of hiding controls or creating unusable overlap.
+
+The responsive preview is not sufficient for final sign-off. Spot-check the
+complete checklist on a **real phone browser**—at minimum iOS Safari and
+Android Chrome—before considering this pass done. Verify real touch scrolling,
+keyboard behavior, safe-area/viewport handling, modal dismissal, and browser
+autofill on both platforms.
