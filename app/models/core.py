@@ -51,6 +51,32 @@ class AppointmentStatus(str, Enum):
     NO_SHOW = "no_show"
 
 
+class PregnancyEpisodeStatus(str, Enum):
+    """Allowed lifecycle values for a pregnancy episode."""
+
+    ACTIVE = "active"
+    DELIVERED = "delivered"
+    ENDED = "ended"
+
+
+class VisitType(str, Enum):
+    """Supported clinical visit templates."""
+
+    PRENATAL = "prenatal"
+    GYN_ANNUAL = "gyn_annual"
+    POSTPARTUM = "postpartum"
+    PROBLEM_FOCUSED = "problem_focused"
+
+
+class ProcedureType(str, Enum):
+    """Supported structured procedure documentation types."""
+
+    IUD_INSERTION = "iud_insertion"
+    IUD_REMOVAL = "iud_removal"
+    COLPOSCOPY = "colposcopy"
+    ENDOMETRIAL_BIOPSY = "endometrial_biopsy"
+
+
 class AuditAction(str, Enum):
     """Allowed lifecycle actions recorded in the generic audit log."""
 
@@ -141,6 +167,22 @@ class Clinic(SoftDeleteMixin, Base):
         cascade="save-update, merge",
     )
     appointments: Mapped[list["Appointment"]] = relationship(
+        back_populates="clinic",
+        cascade="save-update, merge",
+    )
+    pregnancy_episodes: Mapped[list["PregnancyEpisode"]] = relationship(
+        back_populates="clinic",
+        cascade="save-update, merge",
+    )
+    visits: Mapped[list["Visit"]] = relationship(
+        back_populates="clinic",
+        cascade="save-update, merge",
+    )
+    diagnosis_codes: Mapped[list["DiagnosisCode"]] = relationship(
+        back_populates="clinic",
+        cascade="save-update, merge",
+    )
+    phrase_templates: Mapped[list["PhraseTemplate"]] = relationship(
         back_populates="clinic",
         cascade="save-update, merge",
     )
@@ -242,6 +284,14 @@ class Patient(SoftDeleteMixin, Base):
 
     clinic: Mapped[Clinic] = relationship(back_populates="patients")
     appointments: Mapped[list["Appointment"]] = relationship(
+        back_populates="patient",
+        cascade="save-update, merge",
+    )
+    pregnancy_episodes: Mapped[list["PregnancyEpisode"]] = relationship(
+        back_populates="patient",
+        cascade="save-update, merge",
+    )
+    visits: Mapped[list["Visit"]] = relationship(
         back_populates="patient",
         cascade="save-update, merge",
     )
@@ -519,6 +569,448 @@ class Appointment(SoftDeleteMixin, Base):
     )
     appointment_type: Mapped[AppointmentType] = relationship(
         back_populates="appointments",
+    )
+
+
+class PregnancyEpisode(SoftDeleteMixin, Base):
+    """Group prenatal visits and dating information for one patient.
+
+    Fields:
+        id: Internal pregnancy episode identifier.
+        clinic_id: Clinic tenant owning the episode.
+        patient_id: Patient associated with the pregnancy.
+        lmp: Last menstrual period used for initial dating.
+        edd: Original estimated due date, calculated from LMP when omitted.
+        corrected_edd: Optional ultrasound-corrected estimated due date.
+        status: Active, delivered, or ended lifecycle value.
+    """
+
+    __tablename__ = "pregnancy_episodes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    clinic_id: Mapped[int] = mapped_column(
+        ForeignKey("clinics.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    patient_id: Mapped[int] = mapped_column(
+        ForeignKey("patients.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    lmp: Mapped[date] = mapped_column(Date, nullable=False)
+    edd: Mapped[date] = mapped_column(Date, nullable=False)
+    corrected_edd: Mapped[date | None] = mapped_column(Date, nullable=True)
+    status: Mapped[PregnancyEpisodeStatus] = mapped_column(
+        SqlEnum(
+            PregnancyEpisodeStatus,
+            name="pregnancy_episode_status",
+            values_callable=enum_values,
+        ),
+        nullable=False,
+        default=PregnancyEpisodeStatus.ACTIVE,
+        server_default=PregnancyEpisodeStatus.ACTIVE.value,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    clinic: Mapped[Clinic] = relationship(back_populates="pregnancy_episodes")
+    patient: Mapped[Patient] = relationship(back_populates="pregnancy_episodes")
+    visits: Mapped[list["Visit"]] = relationship(
+        back_populates="pregnancy_episode",
+        cascade="save-update, merge",
+    )
+    delivery_outcome: Mapped["DeliveryOutcome | None"] = relationship(
+        back_populates="pregnancy_episode",
+        uselist=False,
+        cascade="save-update, merge",
+    )
+    reminder_dismissals: Mapped[list["ReminderDismissal"]] = relationship(
+        back_populates="pregnancy_episode",
+        cascade="save-update, merge",
+    )
+
+
+class DiagnosisCode(Base):
+    """Represent a selectable ICD-10 diagnosis code."""
+
+    __tablename__ = "diagnosis_codes"
+    __table_args__ = (
+        UniqueConstraint(
+            "clinic_id",
+            "code",
+            name="uq_diagnosis_codes_clinic_code",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    clinic_id: Mapped[int | None] = mapped_column(
+        ForeignKey("clinics.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    code: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    description: Mapped[str] = mapped_column(String(255), nullable=False)
+    active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+    )
+
+    clinic: Mapped[Clinic | None] = relationship(back_populates="diagnosis_codes")
+    visit_links: Mapped[list["VisitDiagnosis"]] = relationship(
+        back_populates="diagnosis_code",
+        cascade="save-update, merge",
+    )
+
+
+class Visit(SoftDeleteMixin, Base):
+    """Represent one structured clinical visit note.
+
+    Structured JSON sections are intentionally separated by clinical template:
+    vitals are shared by every visit type, prenatal_data is used only for
+    prenatal notes, and gyn_data stores menstrual and cervical-screening data.
+    Diagnosis codes are represented by VisitDiagnosis rows, never free text.
+    """
+
+    __tablename__ = "visits"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    clinic_id: Mapped[int] = mapped_column(
+        ForeignKey("clinics.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    patient_id: Mapped[int] = mapped_column(
+        ForeignKey("patients.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    pregnancy_episode_id: Mapped[int | None] = mapped_column(
+        ForeignKey("pregnancy_episodes.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    visit_type: Mapped[VisitType] = mapped_column(
+        SqlEnum(
+            VisitType,
+            name="visit_type",
+            values_callable=enum_values,
+        ),
+        nullable=False,
+        index=True,
+    )
+    vitals: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=dict,
+    )
+    prenatal_data: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=dict,
+    )
+    gyn_data: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=dict,
+    )
+    hpi: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    assessment: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    plan: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    locked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        index=True,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    clinic: Mapped[Clinic] = relationship(back_populates="visits")
+    patient: Mapped[Patient] = relationship(back_populates="visits")
+    pregnancy_episode: Mapped[PregnancyEpisode | None] = relationship(
+        back_populates="visits",
+    )
+    amendments: Mapped[list["VisitAmendment"]] = relationship(
+        back_populates="visit",
+        cascade="save-update, merge",
+    )
+    diagnosis_links: Mapped[list["VisitDiagnosis"]] = relationship(
+        back_populates="visit",
+        cascade="save-update, merge",
+    )
+    procedures: Mapped[list["ProcedureRecord"]] = relationship(
+        back_populates="visit",
+        cascade="save-update, merge",
+    )
+    phrase_uses: Mapped[list["VisitPhraseUse"]] = relationship(
+        back_populates="visit",
+        cascade="save-update, merge",
+    )
+
+
+class VisitDiagnosis(Base):
+    """Associate a Visit with one structured ICD-10 diagnosis code."""
+
+    __tablename__ = "visit_diagnoses"
+    __table_args__ = (
+        UniqueConstraint(
+            "visit_id",
+            "diagnosis_code_id",
+            name="uq_visit_diagnosis",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    visit_id: Mapped[int] = mapped_column(
+        ForeignKey("visits.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    diagnosis_code_id: Mapped[int] = mapped_column(
+        ForeignKey("diagnosis_codes.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+
+    visit: Mapped[Visit] = relationship(back_populates="diagnosis_links")
+    diagnosis_code: Mapped[DiagnosisCode] = relationship(
+        back_populates="visit_links",
+    )
+
+
+class VisitAmendment(Base):
+    """Record a post-lock amendment without mutating the locked note."""
+
+    __tablename__ = "visit_amendments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    visit_id: Mapped[int] = mapped_column(
+        ForeignKey("visits.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    amended_by_user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    visit: Mapped[Visit] = relationship(back_populates="amendments")
+    amended_by_user: Mapped["User"] = relationship(
+        foreign_keys=[amended_by_user_id],
+    )
+
+
+class ProcedureRecord(SoftDeleteMixin, Base):
+    """Represent structured IUD, colposcopy, or biopsy documentation."""
+
+    __tablename__ = "procedure_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    visit_id: Mapped[int] = mapped_column(
+        ForeignKey("visits.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    procedure_type: Mapped[ProcedureType] = mapped_column(
+        SqlEnum(
+            ProcedureType,
+            name="procedure_type",
+            values_callable=enum_values,
+        ),
+        nullable=False,
+    )
+    performed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    details: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=dict,
+    )
+    performed_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+
+    visit: Mapped[Visit] = relationship(back_populates="procedures")
+    performed_by_user: Mapped["User | None"] = relationship(
+        foreign_keys=[performed_by_user_id],
+    )
+
+
+class DeliveryOutcome(Base):
+    """Represent delivery details attached to a pregnancy episode."""
+
+    __tablename__ = "delivery_outcomes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    pregnancy_episode_id: Mapped[int] = mapped_column(
+        ForeignKey("pregnancy_episodes.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+    delivery_date: Mapped[date] = mapped_column(Date, nullable=False)
+    mode: Mapped[str] = mapped_column(String(64), nullable=False)
+    complications: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    birth_weight_grams: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    apgar_one_minute: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    apgar_five_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    pregnancy_episode: Mapped[PregnancyEpisode] = relationship(
+        back_populates="delivery_outcome",
+    )
+
+
+class PhraseTemplate(Base):
+    """Represent a clinic phrase snippet with creator-owned edit history."""
+
+    __tablename__ = "phrase_templates"
+    __table_args__ = (
+        UniqueConstraint(
+            "clinic_id",
+            "name",
+            name="uq_phrase_templates_clinic_name",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    clinic_id: Mapped[int] = mapped_column(
+        ForeignKey("clinics.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    created_by_user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    clinic: Mapped[Clinic] = relationship(back_populates="phrase_templates")
+    created_by_user: Mapped["User"] = relationship(
+        foreign_keys=[created_by_user_id],
+    )
+    phrase_uses: Mapped[list["VisitPhraseUse"]] = relationship(
+        back_populates="phrase_template",
+        cascade="save-update, merge",
+    )
+
+
+class VisitPhraseUse(Base):
+    """Store the exact phrase text inserted into a visit note."""
+
+    __tablename__ = "visit_phrase_uses"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    visit_id: Mapped[int] = mapped_column(
+        ForeignKey("visits.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    phrase_template_id: Mapped[int] = mapped_column(
+        ForeignKey("phrase_templates.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    inserted_by_user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    field_name: Mapped[str] = mapped_column(String(32), nullable=False)
+    text_snapshot: Mapped[str] = mapped_column(Text, nullable=False)
+    inserted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    visit: Mapped[Visit] = relationship(back_populates="phrase_uses")
+    phrase_template: Mapped[PhraseTemplate] = relationship(
+        back_populates="phrase_uses",
+    )
+    inserted_by_user: Mapped["User"] = relationship(
+        foreign_keys=[inserted_by_user_id],
+    )
+
+
+class ReminderDismissal(Base):
+    """Record that a screening prompt was hidden without marking it complete."""
+
+    __tablename__ = "reminder_dismissals"
+    __table_args__ = (
+        UniqueConstraint(
+            "pregnancy_episode_id",
+            "reminder_key",
+            name="uq_reminder_dismissal_episode_key",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    pregnancy_episode_id: Mapped[int] = mapped_column(
+        ForeignKey("pregnancy_episodes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    reminder_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    dismissed_by_user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    dismissed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    pregnancy_episode: Mapped[PregnancyEpisode] = relationship(
+        back_populates="reminder_dismissals",
+    )
+    dismissed_by_user: Mapped["User"] = relationship(
+        foreign_keys=[dismissed_by_user_id],
     )
 
 

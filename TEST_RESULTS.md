@@ -101,3 +101,19 @@ Test 53: PASS — Advanced `checked_in` → `in_room` → `with_doctor` → `don
 Prompt 3.T regression: PASS — Re-ran `tests/test_foundation.py` and confirmed 41 tests passed with 3 existing dependency deprecation warnings.
 Prompt 4.T regression: PASS — Re-ran `tests/test_patients.py` as part of the full patient regression group and confirmed 41 combined foundation/patient tests passed with 3 existing dependency deprecation warnings.
 Full regression suite: PASS — `python -m pytest -q` completed with 53 passed and 3 existing dependency deprecation warnings.
+
+## 2026-09-12 — Visit Documentation
+
+Test 1: PASS — Verified only physician, nurse_ma, and clinic_admin can open the clinical workspace; front_desk and billing_clerk receive 403.
+Test 2: PASS — Verified LMP dating calculates EDD as 280 days and corrected EDD drives gestational-age context without replacing the original value.
+Test 3: PASS — Verified prenatal and gyn annual templates persist their type-specific structured JSON sections.
+Test 4: PASS — Verified active ICD-10 lookup rows can be linked to a visit, unavailable IDs are rejected, and visit creation is audited.
+Test 5: PASS — Verified supported procedure records persist and delivery outcomes move an episode to delivered with structured outcome fields.
+Test 6: PASS — Verified the 48-hour lock window rejects direct edits and locked visits accept amendment-only changes.
+Test 7: PASS — Verified phrase insertion stores a text snapshot that remains unchanged after the source template is edited.
+Test 8: PASS — Verified gestational-age screening reminders calculate, dismiss, and remain separate from screening completion state.
+Test 9: PASS — Verified the browser save flow redirects to the saved visit and renders the schedule-follow-up, mark-done, and skip next-action prompt.
+Migration: PASS — Applied `0005_clinical_documentation` and confirmed it is the Alembic database head.
+Clinical suite: PASS — `python -m pytest -q tests/test_clinical.py` completed with 9 passed and 2 existing dependency deprecation warnings.
+Full regression suite: PASS — `python -m pytest -q` completed with 62 passed and 3 existing dependency deprecation warnings.
+Workflow: PASS — Restarted the OB-GYN Clinic App workflow; local `/health` returned `{"status":"ok","database":"ok"}` and `/login` returned HTTP 200.

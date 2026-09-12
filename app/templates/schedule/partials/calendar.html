@@ -30,7 +30,7 @@
         {% for column in calendar_columns %}
           <div class="relative h-[720px] border-r border-slate-200 last:border-r-0" style="background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 29px, #e2e8f0 30px, transparent 31px, transparent 59px, #e2e8f0 60px);">
             {% for item in column.appointments %}
-              <a href="/visits/patients/{{ item.appointment.patient_id }}" class="absolute left-1.5 right-1.5 overflow-hidden rounded-xl border border-indigo-300 bg-indigo-100 px-2.5 py-2 text-left shadow-sm transition hover:border-indigo-500 hover:bg-indigo-200" style="top: {{ item.top }}px; height: {{ item.height }}px;">
+              <a href="{% if user.role.value in ['physician', 'nurse_ma', 'clinic_admin'] %}/visits/patients/{{ item.appointment.patient_id }}{% else %}/patients/{{ item.appointment.patient_id }}{% endif %}" class="absolute left-1.5 right-1.5 overflow-hidden rounded-xl border border-indigo-300 bg-indigo-100 px-2.5 py-2 text-left shadow-sm transition hover:border-indigo-500 hover:bg-indigo-200" style="top: {{ item.top }}px; height: {{ item.height }}px;">
                 <p class="truncate text-xs font-bold text-indigo-950">{{ item.appointment.scheduled_at.strftime("%H:%M") }} · {{ item.appointment.patient.name }}</p>
                 <p class="mt-1 truncate text-[11px] text-indigo-800">{{ item.appointment.appointment_type.name }} · {{ item.appointment.status.value|replace("_", " ")|title }}</p>
               </a>

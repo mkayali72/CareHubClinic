@@ -2,7 +2,8 @@
 
 Portable FastAPI foundation for an OB/GYN clinic management app. The current
 release includes foundational tenancy, staff authentication, auditing,
-soft-delete infrastructure, Patient Demographics, and Scheduling.
+soft-delete infrastructure, Patient Demographics, Scheduling, and Visit
+Documentation.
 
 ## Run & Operate
 
@@ -27,7 +28,7 @@ soft-delete infrastructure, Patient Demographics, and Scheduling.
 
 ## Where things live
 
-- `app/` — FastAPI application, server-rendered routes, templates, static CSS, and reserved domain folders
+- `app/` — FastAPI application, server-rendered routes, templates, static CSS, and domain services
 - `alembic/` — migration configuration and ordered schema revisions
 - `docker-compose.yml` — portable `app` and `db` services for Docker Desktop
 - `README.md` — setup, portability, and schema sequencing documentation
@@ -44,7 +45,8 @@ soft-delete infrastructure, Patient Demographics, and Scheduling.
 
 The current product surface includes a signed-session login flow, a protected
 welcome page, clinic-scoped patient demographics, a calendar and today's queue,
-PostgreSQL-backed `/health`, and foundational audit/soft-delete infrastructure.
+the clinic-scoped Visit Documentation workspace, PostgreSQL-backed `/health`,
+and foundational audit/soft-delete infrastructure.
 
 ## User preferences
 
@@ -58,6 +60,9 @@ system, and no Replit-specific dependencies.
   authorized in the service layer by clinic_admin.
 - Scheduling status values and transitions are ordered in AppointmentStatus;
   queue actions advance one step and are audited.
+- Clinical documentation is limited to physicians, nurse/MAs, and clinic
+  administrators. Visit fields lock after the named 48-hour window or an
+  explicit lock, with amendments as the only post-lock note update.
 
 ## Pointers
 

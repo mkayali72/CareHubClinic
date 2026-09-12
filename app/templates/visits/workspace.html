@@ -1,0 +1,368 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="space-y-6">
+    <section class="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+      <div>
+        <a class="text-sm font-semibold text-slate-500 hover:text-indigo-700" href="/patients/{{ patient.id }}">← Back to patient</a>
+        <p class="mt-5 text-sm font-semibold text-indigo-600">Clinical documentation</p>
+        <h2 class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{{ patient.name }}</h2>
+        <p class="mt-2 text-sm text-slate-500">Single-page visit note workspace · DOB {{ patient.date_of_birth.strftime("%b %-d, %Y") }}</p>
+      </div>
+      {% if visit %}
+        <div class="flex items-center gap-3">
+          <span class="rounded-full px-3 py-1.5 text-xs font-semibold {% if is_locked %}bg-amber-100 text-amber-800{% else %}bg-emerald-100 text-emerald-800{% endif %}">
+            {% if is_locked %}Locked{% else %}Editable{% endif %}
+          </span>
+          <a class="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50" href="/visits/patients/{{ patient.id }}">New visit</a>
+        </div>
+      {% endif %}
+    </section>
+
+    {% if saved and not next_action_done %}
+      <section class="rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
+        <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Saved</p>
+            <h3 class="mt-1 text-lg font-semibold text-emerald-950">What would you like to do next?</h3>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <form method="post" action="/visits/{{ visit.id }}/next-action">
+              <input type="hidden" name="action" value="schedule_follow_up" />
+              <button class="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800" type="submit">Schedule follow-up</button>
+            </form>
+            <form method="post" action="/visits/{{ visit.id }}/next-action">
+              <input type="hidden" name="action" value="mark_done" />
+              <button class="rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-800 hover:bg-emerald-100" type="submit">Mark done</button>
+            </form>
+            <form method="post" action="/visits/{{ visit.id }}/next-action">
+              <input type="hidden" name="action" value="skip" />
+              <button class="rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-800 hover:bg-emerald-100" type="submit">Skip</button>
+            </form>
+          </div>
+        </div>
+      </section>
+    {% elif next_action_done %}
+      <div class="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600">Next action cleared. The saved note remains available below.</div>
+    {% endif %}
+
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">Visit note</p>
+            <h3 class="mt-1 text-2xl font-semibold text-slate-950">{% if visit %}{{ visit.visit_type.value|replace("_", " ")|title }}{% else %}Start a new visit{% endif %}</h3>
+          </div>
+          {% if visit and visit.locked_at %}
+            <p class="text-right text-xs text-slate-400">Locked<br />{{ visit.locked_at.strftime("%b %-d, %Y %H:%M") }}</p>
+          {% endif %}
+        </div>
+
+        <form class="mt-6 space-y-7" method="post" action="{{ form_action }}">
+          {% if not visit %}
+            <input type="hidden" name="patient_id" value="{{ patient.id }}" />
+          {% endif %}
+          <fieldset {% if is_locked %}disabled{% endif %} class="space-y-7">
+            <div class="grid gap-4 sm:grid-cols-2">
+              <label class="text-sm font-medium text-slate-700">Visit type
+                <select id="visit-type" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" name="visit_type" required onchange="toggleVisitSections()">
+                  {% for item in visit_types %}<option value="{{ item.value }}" {% if visit_values.visit_type == item.value %}selected{% endif %}>{{ item.value|replace("_", " ")|title }}</option>{% endfor %}
+                </select>
+              </label>
+              <label id="episode-field" class="text-sm font-medium text-slate-700">Pregnancy episode
+                <select class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" name="pregnancy_episode_id">
+                  <option value="">Select episode for prenatal visit</option>
+                  {% for episode in episodes %}
+                    <option value="{{ episode.id }}" {% if visit_values.pregnancy_episode_id == episode.id %}selected{% endif %}>LMP {{ episode.lmp.strftime("%b %-d, %Y") }} · EDD {{ (episode.corrected_edd or episode.edd).strftime("%b %-d, %Y") }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between gap-3">
+                <h4 class="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">Vitals · all visit types</h4>
+                <span class="text-xs text-slate-400">Structured values</span>
+              </div>
+              <div class="mt-3 grid gap-4 sm:grid-cols-3">
+                <label class="text-sm font-medium text-slate-700">Blood pressure
+                  <input class="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" name="blood_pressure" placeholder="120/80" value="{{ visit_values.blood_pressure }}" />
+                </label>
+                <label class="text-sm font-medium text-slate-700">Weight (kg)
+                  <input class="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" name="weight_kg" type="number" step="0.1" min="0" value="{{ visit_values.weight_kg }}" />
+                </label>
+                <label class="text-sm font-medium text-slate-700">Height (cm)
+                  <input class="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" name="height_cm" type="number" step="0.1" min="0" value="{{ visit_values.height_cm }}" />
+                </label>
+              </div>
+            </div>
+
+            <div id="prenatal-section" class="space-y-4 rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4">
+              <div>
+                <h4 class="text-sm font-semibold uppercase tracking-[0.12em] text-indigo-700">Prenatal details</h4>
+                {% if selected_episode_age %}<p class="mt-1 text-2xl font-semibold text-indigo-950">{{ selected_episode_age.display }} <span class="text-sm font-medium text-indigo-700">gestational age · EDD {{ selected_episode_age.edd }}</span></p>{% endif %}
+              </div>
+              <div class="grid gap-4 sm:grid-cols-3">
+                <label class="text-sm font-medium text-slate-700">Fundal height (cm)
+                  <input class="mt-2 w-full rounded-xl border border-indigo-100 bg-white px-3 py-2.5 text-sm" name="fundal_height_cm" type="number" step="0.1" min="0" value="{{ visit_values.fundal_height_cm }}" />
+                </label>
+                <label class="text-sm font-medium text-slate-700">Fetal heart tones
+                  <input class="mt-2 w-full rounded-xl border border-indigo-100 bg-white px-3 py-2.5 text-sm" name="fetal_heart_tones" placeholder="e.g. 145 bpm" value="{{ visit_values.fetal_heart_tones }}" />
+                </label>
+                <label class="text-sm font-medium text-slate-700">Fetal position
+                  <input class="mt-2 w-full rounded-xl border border-indigo-100 bg-white px-3 py-2.5 text-sm" name="fetal_position" placeholder="e.g. cephalic" value="{{ visit_values.fetal_position }}" />
+                </label>
+              </div>
+              <div class="grid gap-4 sm:grid-cols-2">
+                <label class="text-sm font-medium text-slate-700">Presentation
+                  <input class="mt-2 w-full rounded-xl border border-indigo-100 bg-white px-3 py-2.5 text-sm" name="presentation" value="{{ visit_values.presentation }}" />
+                </label>
+                <label class="text-sm font-medium text-slate-700">Biometry
+                  <input class="mt-2 w-full rounded-xl border border-indigo-100 bg-white px-3 py-2.5 text-sm" name="ultrasound_biometry" placeholder="Structured ultrasound summary" value="{{ visit_values.ultrasound_biometry }}" />
+                </label>
+              </div>
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-[0.12em] text-indigo-600">Ultrasound findings</p>
+                <div class="mt-3 grid gap-4 sm:grid-cols-2">
+                  <label class="text-sm font-medium text-slate-700">Estimated fetal weight (g)
+                    <input class="mt-2 w-full rounded-xl border border-indigo-100 bg-white px-3 py-2.5 text-sm" name="ultrasound_efw_grams" type="number" min="0" value="{{ visit_values.ultrasound_efw_grams }}" />
+                  </label>
+                  <label class="text-sm font-medium text-slate-700">AFI (cm)
+                    <input class="mt-2 w-full rounded-xl border border-indigo-100 bg-white px-3 py-2.5 text-sm" name="ultrasound_afi_cm" type="number" step="0.1" min="0" value="{{ visit_values.ultrasound_afi_cm }}" />
+                  </label>
+                  <label class="text-sm font-medium text-slate-700">Placenta location
+                    <input class="mt-2 w-full rounded-xl border border-indigo-100 bg-white px-3 py-2.5 text-sm" name="ultrasound_placenta_location" value="{{ visit_values.ultrasound_placenta_location }}" />
+                  </label>
+                  <label class="text-sm font-medium text-slate-700">Ultrasound presentation
+                    <input class="mt-2 w-full rounded-xl border border-indigo-100 bg-white px-3 py-2.5 text-sm" name="ultrasound_presentation" value="{{ visit_values.ultrasound_presentation }}" />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div id="gyn-section" class="space-y-4 rounded-2xl border border-fuchsia-100 bg-fuchsia-50/50 p-4">
+              <h4 class="text-sm font-semibold uppercase tracking-[0.12em] text-fuchsia-700">Gynecologic details</h4>
+              <label class="block text-sm font-medium text-slate-700">Menstrual history
+                <textarea class="mt-2 min-h-24 w-full rounded-xl border border-fuchsia-100 bg-white px-3 py-2.5 text-sm" name="menstrual_history">{{ visit_values.menstrual_history }}</textarea>
+              </label>
+              <div class="grid gap-4 sm:grid-cols-2">
+                <label class="text-sm font-medium text-slate-700">Pap due date
+                  <input class="mt-2 w-full rounded-xl border border-fuchsia-100 bg-white px-3 py-2.5 text-sm" name="pap_due_date" type="date" value="{{ visit_values.pap_due_date }}" />
+                </label>
+                <label class="text-sm font-medium text-slate-700">HPV due date
+                  <input class="mt-2 w-full rounded-xl border border-fuchsia-100 bg-white px-3 py-2.5 text-sm" name="hpv_due_date" type="date" value="{{ visit_values.hpv_due_date }}" />
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <h4 class="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">Clinical narrative</h4>
+              <div class="mt-3 space-y-4">
+                <label class="block text-sm font-medium text-slate-700">HPI
+                  <textarea class="mt-2 min-h-28 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" name="hpi">{{ visit_values.hpi }}</textarea>
+                </label>
+                <label class="block text-sm font-medium text-slate-700">Assessment
+                  <textarea class="mt-2 min-h-28 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" name="assessment">{{ visit_values.assessment }}</textarea>
+                </label>
+                <label class="block text-sm font-medium text-slate-700">Plan
+                  <textarea class="mt-2 min-h-28 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" name="plan">{{ visit_values.plan }}</textarea>
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between gap-3">
+                <h4 class="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">Diagnosis</h4>
+                <span class="text-xs text-slate-400">ICD-10 lookup only</span>
+              </div>
+              <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                {% for code in diagnosis_codes %}
+                  <label class="flex items-start gap-3 rounded-xl border border-slate-200 px-3 py-3 text-sm hover:bg-slate-50">
+                    <input class="mt-0.5 rounded border-slate-300 text-indigo-600" type="checkbox" name="diagnosis_code_ids" value="{{ code.id }}" {% if code.id in visit_values.diagnosis_code_ids %}checked{% endif %} />
+                    <span><strong class="text-slate-900">{{ code.code }}</strong><span class="ml-2 text-slate-500">{{ code.description }}</span></span>
+                  </label>
+                {% endfor %}
+              </div>
+            </div>
+          </fieldset>
+
+          {% if not is_locked %}
+            <button class="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700" type="submit">{% if visit %}Save visit changes{% else %}Save visit note{% endif %}</button>
+          {% endif %}
+        </form>
+
+        {% if visit and not is_locked %}
+          <form class="mt-3" method="post" action="/visits/{{ visit.id }}/lock">
+            <button class="w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 hover:bg-amber-100" type="submit">Lock note now</button>
+          </form>
+        {% endif %}
+
+        {% if visit and is_locked %}
+          <div class="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <p class="text-sm font-semibold text-amber-950">This note is locked.</p>
+            <p class="mt-1 text-sm leading-6 text-amber-900">Original fields cannot be edited. Add a dated amendment below when a correction or clarification is needed.</p>
+            <form class="mt-4" method="post" action="/visits/{{ visit.id }}/amendments">
+              <textarea class="min-h-24 w-full rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-sm" name="content" placeholder="Amendment content" required></textarea>
+              <button class="mt-3 rounded-xl bg-amber-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-800" type="submit">Add amendment</button>
+            </form>
+          </div>
+          {% if visit.amendments %}
+            <div class="mt-5 space-y-3">
+              {% for amendment in visit.amendments %}
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Amendment · {{ amendment.created_at.strftime("%b %-d, %Y %H:%M") }}</p>
+                  <p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{{ amendment.content }}</p>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endif %}
+      </section>
+
+      <aside class="space-y-6">
+        <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">Pregnancy episodes</p>
+          <h3 class="mt-1 text-xl font-semibold text-slate-950">Dating & follow-up</h3>
+          <form class="mt-4 space-y-3" method="post" action="/pregnancy-episodes">
+            <input type="hidden" name="patient_id" value="{{ patient.id }}" />
+            <label class="block text-sm font-medium text-slate-700">LMP<input class="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" type="date" name="lmp" required /></label>
+            <label class="block text-sm font-medium text-slate-700">EDD override (optional)<input class="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" type="date" name="edd" /></label>
+            <label class="block text-sm font-medium text-slate-700">Corrected EDD<input class="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" type="date" name="corrected_edd" /></label>
+            <button class="w-full rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-100" type="submit">Create episode</button>
+          </form>
+          {% if episodes %}
+            <div class="mt-5 space-y-3">
+              {% for episode in episodes %}
+                <div class="rounded-2xl border {% if selected_episode and selected_episode.id == episode.id %}border-indigo-300 bg-indigo-50/60{% else %}border-slate-200{% endif %} p-3">
+                  <div class="flex items-start justify-between gap-2">
+                    <p class="font-semibold text-slate-900">LMP {{ episode.lmp.strftime("%b %-d, %Y") }}</p>
+                    <span class="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase text-slate-600">{{ episode.status.value }}</span>
+                  </div>
+                  <p class="mt-1 text-xs text-slate-500">EDD {{ (episode.corrected_edd or episode.edd).strftime("%b %-d, %Y") }}</p>
+                  {% if selected_episode and selected_episode.id == episode.id %}<p class="mt-2 text-sm font-semibold text-indigo-800">{{ selected_episode_age.display }} gestational age</p>{% endif %}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </section>
+
+        {% if selected_episode %}
+          <section class="rounded-3xl border border-amber-200 bg-amber-50 p-5">
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Screening prompts</p>
+            <h3 class="mt-1 text-xl font-semibold text-amber-950">Trimester reminders</h3>
+            {% if reminders %}
+              <div class="mt-4 space-y-3">
+                {% for reminder in reminders %}
+                  <div class="rounded-2xl border border-amber-200 bg-white p-3">
+                    <div class="flex items-start justify-between gap-3">
+                      <div><p class="font-semibold text-slate-900">{{ reminder.label }}</p><p class="mt-1 text-xs text-amber-800">{{ reminder.status|title }} at {{ reminder.gestational_age }}</p></div>
+                      <form method="post" action="/pregnancy-episodes/{{ selected_episode.id }}/reminders/{{ reminder.key }}/dismiss"><button class="text-xs font-semibold text-slate-500 hover:text-amber-800" type="submit">Dismiss</button></form>
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p class="mt-3 text-sm leading-6 text-amber-900">No active screening prompts at this gestational age.</p>
+            {% endif %}
+          </section>
+
+          <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Pregnancy trend</p>
+            <h3 class="mt-1 text-xl font-semibold text-slate-950">Weight & fundal height</h3>
+            {% if trend %}
+              <div class="mt-5 flex h-36 items-end gap-2 border-b border-l border-slate-200 px-2 pb-1">
+                {% for point in trend %}
+                  <div class="group flex h-full flex-1 flex-col items-center justify-end gap-1">
+                    <div class="w-full max-w-8 rounded-t-lg bg-indigo-400 transition group-hover:bg-indigo-600" style="height: {{ [((point.weight_kg or 0) * 1.2), 8]|max }}px" title="{{ point.weight_kg or '—' }} kg"></div>
+                    <span class="text-[9px] text-slate-400">{{ point.date[5:] }}</span>
+                  </div>
+                {% endfor %}
+              </div>
+              <p class="mt-2 text-xs text-slate-400">Bars show recorded weight; fundal height and blood pressure remain available in each note.</p>
+            {% else %}
+              <p class="mt-3 text-sm text-slate-500">Save a prenatal visit to begin the trend.</p>
+            {% endif %}
+          </section>
+        {% endif %}
+
+        {% if visit %}
+          <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Procedures</p>
+            <h3 class="mt-1 text-xl font-semibold text-slate-950">Structured record</h3>
+            {% if not is_locked %}
+              <form class="mt-4 space-y-3" method="post" action="/visits/{{ visit.id }}/procedures">
+                <select class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" name="procedure_type" required>{% for item in procedure_types %}<option value="{{ item.value }}">{{ item.value|replace("_", " ")|title }}</option>{% endfor %}</select>
+                <textarea class="min-h-20 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" name="details" placeholder="Procedure details"></textarea>
+                <button class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50" type="submit">Add procedure</button>
+              </form>
+            {% endif %}
+            {% if visit.procedures %}
+              <div class="mt-4 space-y-2">{% for procedure in visit.procedures %}<div class="rounded-xl bg-slate-50 px-3 py-2.5"><p class="text-sm font-semibold text-slate-800">{{ procedure.procedure_type.value|replace("_", " ")|title }}</p><p class="mt-1 text-xs text-slate-500">{{ procedure.details.get("notes", "") }}</p></div>{% endfor %}</div>
+            {% endif %}
+          </section>
+        {% endif %}
+
+        {% if visit and phrase_templates and not is_locked %}
+          <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Phrase library</p>
+            <h3 class="mt-1 text-xl font-semibold text-slate-950">Insert a snippet</h3>
+            <p class="mt-2 text-xs leading-5 text-slate-500">Insertion stores the current text in the note. Later template edits do not change this saved visit.</p>
+            <div class="mt-4 space-y-3">
+              {% for phrase in phrase_templates %}
+                <div class="rounded-xl border border-slate-200 p-3">
+                  <p class="font-semibold text-slate-800">{{ phrase.name }}</p>
+                  <div class="mt-2 flex flex-wrap gap-2">{% for field in free_text_fields %}<form method="post" action="/visits/{{ visit.id }}/phrases"><input type="hidden" name="phrase_template_id" value="{{ phrase.id }}" /><input type="hidden" name="field_name" value="{{ field }}" /><button class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:border-indigo-300 hover:text-indigo-700" type="submit">{{ field|upper }}</button></form>{% endfor %}</div>
+                </div>
+              {% endfor %}
+            </div>
+          </section>
+        {% endif %}
+        <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Phrase library</p>
+          <h3 class="mt-1 text-xl font-semibold text-slate-950">Create a reusable phrase</h3>
+          <form class="mt-4 space-y-3" method="post" action="/phrase-templates">
+            <input type="hidden" name="patient_id" value="{{ patient.id }}" />
+            <input class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" name="name" placeholder="Template name" required />
+            <textarea class="min-h-20 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" name="body" placeholder="Phrase text" required></textarea>
+            <button class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50" type="submit">Save phrase template</button>
+          </form>
+          {% if phrase_templates %}
+            <div class="mt-5 space-y-3 border-t border-slate-100 pt-5">
+              <p class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Edit templates</p>
+              {% for phrase in phrase_templates %}
+                <form class="space-y-2 rounded-2xl border border-slate-200 p-3" method="post" action="/phrase-templates/{{ phrase.id }}">
+                  <input type="hidden" name="patient_id" value="{{ patient.id }}" />
+                  <input class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold" name="name" value="{{ phrase.name }}" required />
+                  <textarea class="min-h-20 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" name="body" required>{{ phrase.body }}</textarea>
+                  <button class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-indigo-300 hover:text-indigo-700" type="submit">Update template</button>
+                </form>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </section>
+      </aside>
+    </div>
+
+    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="flex items-center justify-between gap-3">
+        <div><p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">History</p><h3 class="mt-1 text-xl font-semibold text-slate-950">Saved visits</h3></div>
+      </div>
+      {% if visits %}
+        <div class="mt-4 grid gap-3 md:grid-cols-2">{% for saved_visit in visits %}<a class="rounded-2xl border {% if visit and visit.id == saved_visit.id %}border-indigo-300 bg-indigo-50{% else %}border-slate-200{% endif %} p-4 hover:border-indigo-300" href="/visits/{{ saved_visit.id }}"><div class="flex items-start justify-between gap-3"><p class="font-semibold text-slate-900">{{ saved_visit.visit_type.value|replace("_", " ")|title }}</p><span class="text-xs text-slate-400">{{ saved_visit.created_at.strftime("%b %-d, %Y") }}</span></div><p class="mt-2 text-sm text-slate-500">{% for link in saved_visit.diagnosis_links %}{{ link.diagnosis_code.code }}{% if not loop.last %}, {% endif %}{% else %}No diagnosis codes{% endfor %}</p></a>{% endfor %}</div>
+      {% else %}<p class="mt-4 text-sm text-slate-500">No saved visit notes yet.</p>{% endif %}
+    </section>
+  </div>
+
+  <script>
+    function toggleVisitSections() {
+      const type = document.getElementById("visit-type")?.value;
+      const prenatal = document.getElementById("prenatal-section");
+      const gyn = document.getElementById("gyn-section");
+      const episode = document.getElementById("episode-field");
+      if (prenatal) prenatal.style.display = type === "prenatal" ? "block" : "none";
+      if (gyn) gyn.style.display = type === "gyn_annual" ? "block" : "none";
+      if (episode) episode.style.display = type === "prenatal" ? "block" : "none";
+    }
+    toggleVisitSections();
+  </script>
+{% endblock %}

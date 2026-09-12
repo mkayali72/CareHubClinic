@@ -2,9 +2,8 @@
 
 This repository contains the portable foundation for a web application that
 supports OB/GYN clinic operations. It includes foundational tenancy,
-authentication, auditing, soft-delete infrastructure, the Patient Demographics
-module, and the Scheduling module. Future clinical workflows such as visits,
-labs, and prescriptions remain intentionally scoped for later modules.
+authentication, auditing, soft-delete infrastructure, the Patient Demographics,
+Scheduling, and core Visit Documentation modules.
 
 ## Stack
 
@@ -29,15 +28,15 @@ app/
   config.py             Environment-backed settings
   database.py           SQLAlchemy engine, ORM sessions, and soft-delete filter
   main.py               FastAPI application factory and entry point
-  models/               Clinic, Patient, User, scheduling entities, and mixins
-  routes/               Health, authentication, patient, scheduling, and page routers
+  models/               Clinic, Patient, User, scheduling, and clinical entities
+  routes/               Health, authentication, patient, scheduling, clinical, and page routers
   schemas/              Reserved for future request/response schemas
-  services/             Authentication, scheduling, patient, and audit logic
+  services/             Authentication, scheduling, clinical, patient, and audit logic
   static/               CSS and future static assets
-  templates/            Login, patient, scheduling, welcome, and shared shell
+  templates/            Login, patient, scheduling, visit, welcome, and shared shell
 alembic/
   env.py                Migration environment wired to DATABASE_URL
-  versions/             Foundational, auth-security, patient, and scheduling migrations
+  versions/             Foundational, auth-security, patient, scheduling, and clinical migrations
 docker-compose.yml      Portable app + PostgreSQL development environment
 Dockerfile              Container image for the FastAPI app
 requirements.txt        Pinned Python dependencies
@@ -119,14 +118,33 @@ The migrations create the following foundational and patient tables:
 - **Appointment** is a clinic-scoped soft-deletable scheduling record that
   references an existing Patient, a physician User, an AppointmentType,
   clinic-local scheduled time, duration, and an ordered status.
+- **PregnancyEpisode** groups prenatal care for one patient. It stores the LMP,
+  calculated original EDD, optional corrected EDD, and an active/delivered/ended
+  status.
+- **Visit** is a clinic-scoped structured note with a visit type, shared vitals,
+  type-specific prenatal or gynecologic JSON sections, HPI, assessment, plan,
+  diagnosis links, and a lock timestamp.
+- **DiagnosisCode** is an active ICD-10 lookup row. Common OB/GYN codes are
+  seeded by the clinical migration, and visits reference selected lookup rows
+  through **VisitDiagnosis** rather than accepting free-text codes.
+- **VisitAmendment** stores post-lock clarifications without mutating original
+  visit fields. **ProcedureRecord** stores structured IUD, colposcopy, and
+  endometrial-biopsy documentation.
+- **DeliveryOutcome** closes a pregnancy episode with delivery date, mode,
+  complications, birth weight, and Apgar values.
+- **PhraseTemplate** stores reusable clinic phrases. **VisitPhraseUse** stores
+  the exact text snapshot inserted into a note, so later template edits do not
+  change existing documentation.
+- **ReminderDismissal** records that a calculated pregnancy screening prompt was
+  dismissed without claiming that the screening was completed.
 - **SoftDeleteMixin** adds `deleted_at` and `deleted_by_user_id`. SQLAlchemy
   SELECT statements exclude soft-deleted rows by default; callers must
   explicitly opt in with `include_deleted=True` to inspect them.
 
 The application never hard-deletes clinical or financial data. Only the
 `clinic_admin` role may trigger soft deletion or restoration, and that rule is
-enforced in the service layer rather than only in the UI. Future clinical
-models such as Patient, Visit, Prescription, and LabOrder must use the mixin.
+enforced in the service layer rather than only in the UI. Deletable clinical
+records reuse the mixin.
 
 ## Authentication
 
@@ -167,7 +185,8 @@ one status at a time through `scheduled`, `checked_in`, `in_room`,
 `with_doctor`, and `done`; `cancelled` and `no_show` remain terminal values.
 Every status change is written to the immutable audit log. A physician's
 `/welcome` landing page is their own today's queue, and queue patient links
-currently point to a visit placeholder for the next clinical module.
+open the real Visit Documentation workspace for clinical roles; front desk
+links fall back to the demographic patient page.
 
 Front desk and clinic administrators can book an existing patient through
 `POST /schedule/appointments`. The type's default duration is used when no
@@ -191,12 +210,89 @@ requirements are defined.
 Clinic administrators can manage appointment types directly in the Schedule
 workspace. Billing clerks do not have scheduling or queue access.
 
+## Clinical Documentation
+
+The Visit Documentation workspace is available at
+`/visits/patients/{patient_id}` to `physician`, `nurse_ma`, and `clinic_admin`.
+Front desk and billing roles are denied at the route and do not receive
+clinical fields through a crafted request. The workspace is a single scrolling
+page rather than a multi-step wizard so a clinician can document the complete
+encounter without losing context.
+
+### Pregnancy episodes and dating
+
+- Create a pregnancy episode with an LMP. If an EDD is not supplied, the
+  service calculates LMP + 280 days.
+- Store an optional corrected EDD separately from the original calculation.
+- The workspace displays gestational age as weeks and days and uses the
+  corrected EDD when present.
+- Prenatal visits must select a pregnancy episode. Gyn annual, postpartum, and
+  problem-focused visits cannot be linked to an episode unless the visit type
+  is prenatal.
+- Delivery outcomes record mode, complications, birth weight, and Apgars, then
+  move the episode to `delivered`.
+
+### Structured visit notes
+
+Every visit includes vitals, HPI, assessment, plan, and diagnoses selected from
+the ICD-10 lookup. Visit templates add the appropriate fields:
+
+- **Prenatal:** fundal height, fetal heart tones, fetal position,
+  presentation, and ultrasound findings including estimated fetal weight, AFI,
+  placenta location, presentation, and biometry.
+- **Gyn annual:** menstrual history, Pap due date, and HPV due date.
+- **Postpartum/problem-focused:** shared vitals and narrative fields without
+  prenatal-only data.
+
+Supported procedures are IUD insertion/removal, colposcopy, and endometrial
+biopsy. Procedure details are structured records attached to the visit and
+are audited on creation.
+
+### Locking and amendments
+
+The named lock policy is a configurable **48-hour window** beginning at visit
+creation. A clinician can also lock a visit immediately. Once the manual lock
+is set or the window expires:
+
+- Direct note edits, phrase insertion, and new procedure records are rejected.
+- The original HPI, assessment, plan, structured sections, and diagnosis links
+  remain unchanged.
+- A clinical user can add an amendment containing the correction or clarification.
+- Lock, edit, and amendment actions are written to the immutable audit log.
+
+### Phrases, reminders, and trends
+
+Physicians can create clinic phrase templates and insert them into HPI,
+assessment, or plan. Insertion appends a text snapshot to the note and records
+which template and field were used. Editing a template later does not rewrite
+old notes.
+
+The pregnancy workspace calculates prompts for glucose tolerance testing
+(24–28 weeks), Rhogam review (28–30 weeks), and Group B Strep culture
+(36–37 weeks). Prompts become overdue after their window and can be dismissed;
+dismissal is audited and is not a screening-completion record.
+
+The lightweight trend view uses saved prenatal visits to show recorded weight
+over time. Each note retains fundal height and blood pressure for clinical
+review without adding a heavy charting dependency.
+
+After a visit saves, the screen offers three next actions: schedule a follow-up,
+mark done, or skip. Schedule follow-up returns to the scheduling workspace with
+the patient selected.
+
 ## Clinical schema sequencing
 
-Visit, lab, prescription, and billing tables have not been created yet. This
-is deliberate: those workflows need their own domain requirements. Alembic is
-configured through the Scheduling migration, and future clinical records should
-continue using the soft-delete and audit conventions.
+`0005_clinical_documentation` creates the pregnancy, visit, diagnosis,
+amendment, procedure, delivery, phrase, and reminder tables and seeds common
+ICD-10 choices. Apply it with:
+
+```bash
+alembic upgrade head
+```
+
+Clinical records remain clinic-scoped, auditable, and portable to Docker
+Desktop. The separate Labs, Prescriptions, and Billing workflows remain
+outside this module.
 
 ## Development documentation
 

@@ -11,6 +11,9 @@
         <p class="mt-2 text-sm text-slate-500">Patient #{{ patient.id }} · Date of birth {{ patient.date_of_birth.strftime("%B %-d, %Y") }}</p>
       </div>
       <div class="flex flex-wrap gap-3">
+        {% if can_view_sensitive %}
+          <a class="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700" href="/visits/patients/{{ patient.id }}">Open clinical workspace</a>
+        {% endif %}
         <button class="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50" type="button" hx-get="/patients/{{ patient.id }}/edit" hx-target="#patient-content" hx-swap="innerHTML">Edit demographics</button>
         {% if can_delete %}
           <form method="post" action="/patients/{{ patient.id }}/delete" hx-post="/patients/{{ patient.id }}/delete" hx-target="#patient-detail" hx-swap="innerHTML" hx-confirm="Soft-delete this patient record?">

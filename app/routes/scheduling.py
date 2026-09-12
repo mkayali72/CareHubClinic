@@ -522,24 +522,3 @@ def update_appointment_type_route(
             context=_type_panel_context(request, db, current_user),
         )
     return RedirectResponse(url="/schedule", status_code=303)
-
-
-@router.get("/visits/patients/{patient_id}", response_class=HTMLResponse)
-def visit_placeholder(
-    request: Request,
-    patient_id: int,
-    current_user: User = Depends(require_roles(*SCHEDULING_ROLES)),
-) -> Response:
-    """Show the placeholder destination for the future patient visit workflow."""
-
-    return templates.TemplateResponse(
-        request=request,
-        name="visit_placeholder.html",
-        context={
-            "request": request,
-            "app_name": settings.app_name,
-            "page_title": "Visit workspace",
-            "user": current_user,
-            "patient_id": patient_id,
-        },
-    )

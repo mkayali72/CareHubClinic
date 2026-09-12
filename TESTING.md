@@ -131,8 +131,61 @@ alembic upgrade head
       current app uses htmx refreshes and does not provide server-pushed
       real-time updates without a browser request.
 - [ ] Sign in as a physician and confirm `/welcome` is the physician's own
-      today's queue; confirm queue patient links open the visit placeholder.
+      today's queue; confirm queue patient links open the clinical workspace.
 - [ ] Sign in as `billing_clerk`; confirm `/schedule`, `/queue`, and
       `/api/appointments` return 403.
 - [ ] Confirm appointments, patients, physicians, and appointment types from a
       different clinic cannot be selected or retrieved through direct requests.
+
+## 2026-09-12 — Visit Documentation
+
+Apply all migrations and start the documented FastAPI workflow before testing:
+
+```bash
+alembic upgrade head
+python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+```
+
+- [ ] Sign in as `physician`, `nurse_ma`, and `clinic_admin`; open
+      `/visits/patients/{patient_id}` and confirm the single scrolling visit
+      workspace is available.
+- [ ] Sign in as `front_desk` and `billing_clerk`; confirm the same clinical
+      URL returns 403 and the patient detail page does not expose clinical
+      fields.
+- [ ] Create a pregnancy episode with an LMP and no EDD; confirm EDD is
+      calculated as LMP + 280 days.
+- [ ] Add a corrected EDD; confirm the original EDD remains stored and the
+      workspace displays the corrected date for gestational-age context.
+- [ ] Create a prenatal visit without an episode; confirm validation rejects it.
+      Select an episode and save vitals, fundal height, fetal heart tones,
+      fetal position, ultrasound values, HPI, assessment, plan, and one seeded
+      ICD-10 code; confirm all sections reload from the saved note.
+- [ ] Create a gyn annual, postpartum, and problem-focused note; confirm
+      prenatal-only fields are not required and gyn screening fields are stored
+      for the annual template.
+- [ ] Attempt to submit an unavailable or inactive diagnosis ID directly;
+      confirm the visit is rejected and no free-text diagnosis is accepted.
+- [ ] Add each supported procedure type to an unlocked visit and confirm the
+      structured detail and AuditLog row are present.
+- [ ] Record a delivery outcome for an active pregnancy episode; confirm mode,
+      complications, birth weight, Apgars, and delivered status are visible.
+- [ ] Lock a note manually; confirm the original form is read-only and direct
+      edits, phrase insertion, and procedures are rejected.
+- [ ] Create an old note beyond the named 48-hour window; confirm it is treated
+      as locked even when `locked_at` is null.
+- [ ] Add an amendment to a locked note; confirm the amendment is visible with
+      its timestamp and the original note fields have not changed.
+- [ ] Create a phrase template, insert it into HPI/assessment/plan, edit the
+      template, and confirm the existing note retains the original text snapshot.
+- [ ] Use an episode at 24–28 weeks, 28–30 weeks, and 36–37 weeks; confirm the
+      glucose, Rhogam, and Group B Strep prompts appear in their windows, become
+      overdue after the window, and disappear after dismissal without changing
+      screening completion data.
+- [ ] Save multiple prenatal visits with weight, blood pressure, and fundal
+      height; confirm the lightweight pregnancy trend renders the saved points.
+- [ ] Save a visit and confirm the next-action prompt offers Schedule follow-up,
+      Mark done, and Skip. Confirm follow-up returns to scheduling with the
+      patient selected.
+- [ ] Open the same patient in two browser sessions, save or amend in one, and
+      refresh the other; confirm persisted data appears. The app intentionally
+      uses refresh/htmx requests rather than server-pushed realtime updates.

@@ -8,7 +8,7 @@
         {% for appointment in queue_appointments %}
           <tr class="hover:bg-slate-50">
             <td class="whitespace-nowrap px-3 py-4 font-semibold text-slate-700">{{ appointment.scheduled_at.strftime("%H:%M") }}</td>
-            <td class="px-3 py-4"><a class="font-semibold text-indigo-700 hover:text-indigo-900" href="/visits/patients/{{ appointment.patient_id }}">{{ appointment.patient.name }}</a><p class="mt-1 text-xs text-slate-400">{{ appointment.appointment_type.name }}</p></td>
+            <td class="px-3 py-4"><a class="font-semibold text-indigo-700 hover:text-indigo-900" href="{% if user.role.value in ['physician', 'nurse_ma', 'clinic_admin'] %}/visits/patients/{{ appointment.patient_id }}{% else %}/patients/{{ appointment.patient_id }}{% endif %}">{{ appointment.patient.name }}</a><p class="mt-1 text-xs text-slate-400">{{ appointment.appointment_type.name }}</p></td>
             <td class="px-3 py-4 text-slate-600">{{ appointment.doctor.full_name }}</td>
             <td class="px-3 py-4"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold {% if appointment.status.value == 'done' %}bg-emerald-100 text-emerald-800{% elif appointment.status.value in ['cancelled', 'no_show'] %}bg-rose-100 text-rose-800{% elif appointment.status.value == 'checked_in' %}bg-amber-100 text-amber-800{% else %}bg-indigo-100 text-indigo-800{% endif %}">{{ appointment.status.value|replace("_", " ")|title }}</span></td>
             <td class="px-3 py-4 text-right">
