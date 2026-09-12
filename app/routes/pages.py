@@ -5,8 +5,12 @@ from fastapi.templating import Jinja2Templates
 from starlette.responses import RedirectResponse, Response
 
 from app.config import settings
+from app.database import get_db
+from app.models import User, UserRole
 from app.services.auth import get_current_user, require_authenticated_user
-from app.models import User
+from app.services.scheduling import get_appointments_for_date
+from sqlalchemy.orm import Session
+from datetime import date
 
 router = APIRouter(tags=["pages"])
 templates = Jinja2Templates(directory="app/templates")
@@ -37,6 +41,7 @@ def dashboard(
 def welcome(
     request: Request,
     current_user: User = Depends(require_authenticated_user),
+    db: Session = Depends(get_db),
 ) -> Response:
     """Render the minimal authenticated landing page.
 
@@ -48,6 +53,16 @@ def welcome(
         A Jinja2 response showing the user's name and role.
     """
 
+    physician_queue = (
+        get_appointments_for_date(
+            db,
+            current_user,
+            date.today(),
+            doctor_id=current_user.id,
+        )
+        if current_user.role is UserRole.PHYSICIAN
+        else []
+    )
     return templates.TemplateResponse(
         request=request,
         name="welcome.html",
@@ -55,5 +70,7 @@ def welcome(
             "app_name": settings.app_name,
             "page_title": "Welcome",
             "user": current_user,
+            "physician_queue": physician_queue,
+            "today": date.today(),
         },
     )

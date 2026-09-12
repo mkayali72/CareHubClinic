@@ -12,6 +12,7 @@ from typing import Any
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     Enum as SqlEnum,
@@ -36,6 +37,18 @@ class UserRole(str, Enum):
     FRONT_DESK = "front_desk"
     BILLING_CLERK = "billing_clerk"
     CLINIC_ADMIN = "clinic_admin"
+
+
+class AppointmentStatus(str, Enum):
+    """Allowed appointment lifecycle values in display and transition order."""
+
+    SCHEDULED = "scheduled"
+    CHECKED_IN = "checked_in"
+    IN_ROOM = "in_room"
+    WITH_DOCTOR = "with_doctor"
+    DONE = "done"
+    CANCELLED = "cancelled"
+    NO_SHOW = "no_show"
 
 
 class AuditAction(str, Enum):
@@ -120,6 +133,14 @@ class Clinic(SoftDeleteMixin, Base):
         cascade="save-update, merge",
     )
     patients: Mapped[list["Patient"]] = relationship(
+        back_populates="clinic",
+        cascade="save-update, merge",
+    )
+    appointment_types: Mapped[list["AppointmentType"]] = relationship(
+        back_populates="clinic",
+        cascade="save-update, merge",
+    )
+    appointments: Mapped[list["Appointment"]] = relationship(
         back_populates="clinic",
         cascade="save-update, merge",
     )
@@ -220,6 +241,74 @@ class Patient(SoftDeleteMixin, Base):
     )
 
     clinic: Mapped[Clinic] = relationship(back_populates="patients")
+    appointments: Mapped[list["Appointment"]] = relationship(
+        back_populates="patient",
+        cascade="save-update, merge",
+    )
+
+
+class AppointmentType(SoftDeleteMixin, Base):
+    """Represent a clinic-configurable appointment type lookup value.
+
+    Fields:
+        id: Internal appointment type identifier.
+        clinic_id: Clinic tenant that owns the type.
+        name: Human-readable appointment type name.
+        default_duration_minutes: Default duration used when appointments are
+            created without an explicit override.
+        created_at: UTC timestamp when the type was created.
+        updated_at: UTC timestamp when the type was last edited.
+    """
+
+    __tablename__ = "appointment_types"
+    __table_args__ = (
+        UniqueConstraint(
+            "clinic_id",
+            "name",
+            name="uq_appointment_types_clinic_name",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        comment="Internal appointment type identifier.",
+    )
+    clinic_id: Mapped[int] = mapped_column(
+        ForeignKey("clinics.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+        comment="Clinic tenant that owns this appointment type.",
+    )
+    name: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+        comment="Display name of the appointment type.",
+    )
+    default_duration_minutes: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        comment="Default appointment duration in minutes.",
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="UTC timestamp when the appointment type was created.",
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+        comment="UTC timestamp when the appointment type was last edited.",
+    )
+
+    clinic: Mapped[Clinic] = relationship(back_populates="appointment_types")
+    appointments: Mapped[list["Appointment"]] = relationship(
+        back_populates="appointment_type",
+        cascade="save-update, merge",
+    )
 
 
 class User(SoftDeleteMixin, Base):
@@ -321,9 +410,115 @@ class User(SoftDeleteMixin, Base):
     )
 
     clinic: Mapped[Clinic] = relationship(back_populates="users")
+    doctor_appointments: Mapped[list["Appointment"]] = relationship(
+        back_populates="doctor",
+        foreign_keys="Appointment.doctor_id",
+        cascade="save-update, merge",
+    )
     audit_logs: Mapped[list["AuditLog"]] = relationship(
         back_populates="actor_user",
         foreign_keys="AuditLog.actor_user_id",
+    )
+
+
+class Appointment(SoftDeleteMixin, Base):
+    """Represent one clinic appointment on the scheduling calendar.
+
+    Fields:
+        id: Internal appointment identifier.
+        clinic_id: Clinic tenant that owns the appointment.
+        patient_id: Existing patient receiving the appointment.
+        doctor_id: Physician assigned to the appointment.
+        scheduled_at: Clinic-local scheduled date and time.
+        duration_minutes: Appointment duration in minutes.
+        appointment_type_id: Clinic-configurable type lookup reference.
+        status: Ordered lifecycle status from scheduled through done.
+        created_at: UTC timestamp when the appointment was created.
+        updated_at: UTC timestamp when the appointment was last changed.
+    """
+
+    __tablename__ = "appointments"
+    __table_args__ = (
+        CheckConstraint(
+            "duration_minutes > 0",
+            name="ck_appointments_duration_positive",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        comment="Internal appointment identifier.",
+    )
+    clinic_id: Mapped[int] = mapped_column(
+        ForeignKey("clinics.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+        comment="Clinic tenant that owns this appointment.",
+    )
+    patient_id: Mapped[int] = mapped_column(
+        ForeignKey("patients.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+        comment="Patient receiving the appointment.",
+    )
+    doctor_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+        comment="Physician assigned to the appointment.",
+    )
+    scheduled_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False),
+        nullable=False,
+        index=True,
+        comment="Clinic-local scheduled date and time.",
+    )
+    duration_minutes: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        comment="Appointment duration in minutes.",
+    )
+    appointment_type_id: Mapped[int] = mapped_column(
+        ForeignKey("appointment_types.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+        comment="Clinic-configurable appointment type.",
+    )
+    status: Mapped[AppointmentStatus] = mapped_column(
+        SqlEnum(
+            AppointmentStatus,
+            name="appointment_status",
+            values_callable=enum_values,
+        ),
+        nullable=False,
+        default=AppointmentStatus.SCHEDULED,
+        server_default=AppointmentStatus.SCHEDULED.value,
+        index=True,
+        comment="Ordered appointment lifecycle status.",
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="UTC timestamp when the appointment was created.",
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+        comment="UTC timestamp when the appointment was last changed.",
+    )
+
+    clinic: Mapped[Clinic] = relationship(back_populates="appointments")
+    patient: Mapped[Patient] = relationship(back_populates="appointments")
+    doctor: Mapped[User] = relationship(
+        back_populates="doctor_appointments",
+        foreign_keys=[doctor_id],
+    )
+    appointment_type: Mapped[AppointmentType] = relationship(
+        back_populates="appointments",
     )
 
 

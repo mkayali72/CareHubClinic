@@ -1,0 +1,21 @@
+<div>
+  <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Clinic settings</p>
+  <h3 class="mt-1 text-xl font-semibold text-slate-950">Appointment types</h3>
+  <p class="mt-1 text-sm leading-6 text-slate-500">Clinic administrators can change the lookup names and default durations used by booking.</p>
+  <form class="mt-4 flex flex-col gap-3 sm:flex-row" method="post" action="/schedule/types" hx-post="/schedule/types" hx-target="#appointment-types" hx-swap="innerHTML">
+    <input class="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-sm" name="name" placeholder="e.g. Prenatal follow-up" required />
+    <input class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm sm:w-28" name="default_duration_minutes" type="number" min="1" placeholder="Minutes" required />
+    <button class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-700" type="submit">Add type</button>
+  </form>
+  {% if appointment_types %}
+    <div class="mt-5 space-y-3">
+      {% for appointment_type in appointment_types %}
+        <form class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:flex-row" method="post" action="/schedule/types/{{ appointment_type.id }}" hx-post="/schedule/types/{{ appointment_type.id }}" hx-target="#appointment-types" hx-swap="innerHTML">
+          <input class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" name="name" value="{{ appointment_type.name }}" required />
+          <input class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm sm:w-28" name="default_duration_minutes" type="number" min="1" value="{{ appointment_type.default_duration_minutes }}" required />
+          <button class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:border-indigo-300 hover:text-indigo-700" type="submit">Save</button>
+        </form>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>

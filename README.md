@@ -2,9 +2,9 @@
 
 This repository contains the portable foundation for a web application that
 supports OB/GYN clinic operations. It includes foundational tenancy,
-authentication, auditing, soft-delete infrastructure, and the Patient
-Demographics module. Future clinical workflows such as visits, labs, and
-prescriptions remain intentionally scoped for later modules.
+authentication, auditing, soft-delete infrastructure, the Patient Demographics
+module, and the Scheduling module. Future clinical workflows such as visits,
+labs, and prescriptions remain intentionally scoped for later modules.
 
 ## Stack
 
@@ -29,15 +29,15 @@ app/
   config.py             Environment-backed settings
   database.py           SQLAlchemy engine, ORM sessions, and soft-delete filter
   main.py               FastAPI application factory and entry point
-  models/               Clinic, Patient, User, AuditLog, and mixins
-  routes/               Health, authentication, patient, and page routers
+  models/               Clinic, Patient, User, scheduling entities, and mixins
+  routes/               Health, authentication, patient, scheduling, and page routers
   schemas/              Reserved for future request/response schemas
-  services/             Authentication and audit/soft-delete business logic
+  services/             Authentication, scheduling, patient, and audit logic
   static/               CSS and future static assets
-  templates/            Login, patient views/forms, welcome, and shared shell
+  templates/            Login, patient, scheduling, welcome, and shared shell
 alembic/
   env.py                Migration environment wired to DATABASE_URL
-  versions/             Foundational, auth-security, and patient migrations
+  versions/             Foundational, auth-security, patient, and scheduling migrations
 docker-compose.yml      Portable app + PostgreSQL development environment
 Dockerfile              Container image for the FastAPI app
 requirements.txt        Pinned Python dependencies
@@ -113,6 +113,12 @@ The migrations create the following foundational and patient tables:
   projected by role; `front_desk` and `billing_clerk` receive only name, date
   of birth, contact, and insurance information, while clinical roles also
   receive emergency contact and clinical standing fields.
+- **AppointmentType** is a clinic-scoped soft-deletable lookup row with a
+  unique name and default duration. Only `clinic_admin` can create or edit
+  appointment types.
+- **Appointment** is a clinic-scoped soft-deletable scheduling record that
+  references an existing Patient, a physician User, an AppointmentType,
+  clinic-local scheduled time, duration, and an ordered status.
 - **SoftDeleteMixin** adds `deleted_at` and `deleted_by_user_id`. SQLAlchemy
   SELECT statements exclude soft-deleted rows by default; callers must
   explicitly opt in with `include_deleted=True` to inspect them.
@@ -146,11 +152,39 @@ tabs. A Billing tab is rendered only when the owning Clinic has
 Only `clinic_admin` can soft-delete a patient. Deletion writes an AuditLog row,
 retains the database record, and removes it from normal patient queries.
 
+## Scheduling
+
+The `/schedule` workspace is the primary Google Calendar-style grid. It uses
+server-rendered Jinja2 and a small amount of vanilla layout styling rather than
+a heavy calendar dependency. Date navigation reloads only the calendar region
+through htmx where appropriate. The grid shows a physician column for each
+active physician and places appointments by their clinic-local start time and
+duration.
+
+The `/queue` workspace shows the selected day's patient flow for physicians,
+nurses/MAs, front desk staff, and clinic administrators. Queue actions advance
+one status at a time through `scheduled`, `checked_in`, `in_room`,
+`with_doctor`, and `done`; `cancelled` and `no_show` remain terminal values.
+Every status change is written to the immutable audit log. A physician's
+`/welcome` landing page is their own today's queue, and queue patient links
+currently point to a visit placeholder for the next clinical module.
+
+Front desk and clinic administrators can book an existing patient through
+`POST /schedule/appointments`. The type's default duration is used when no
+override is entered. The same roles can use `POST /schedule/walk-ins` to create
+a new Patient and a `checked_in` Appointment in one transaction. The physician
+must be an active physician in the same clinic, and all patient, doctor, and
+appointment-type references are clinic-scoped in the service layer.
+
+Clinic administrators can manage appointment types directly in the Schedule
+workspace. Billing clerks do not have scheduling or queue access.
+
 ## Clinical schema sequencing
 
 Visit, lab, prescription, and billing tables have not been created yet. This
 is deliberate: those workflows need their own domain requirements. Alembic is
-configured and the Patient migration is already in place.
+configured through the Scheduling migration, and future clinical records should
+continue using the soft-delete and audit conventions.
 
 ## Development documentation
 

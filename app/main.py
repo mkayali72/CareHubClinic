@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import settings
-from app.routes import auth, health, pages, patients
+from app.routes import auth, health, pages, patients, scheduling
 
 
 def create_app() -> FastAPI:
@@ -35,6 +35,7 @@ def create_app() -> FastAPI:
     application.include_router(auth.router)
     application.include_router(pages.router)
     application.include_router(patients.router)
+    application.include_router(scheduling.router)
     return application
 
 

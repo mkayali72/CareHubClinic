@@ -5,11 +5,24 @@ point.
 """
 
 from app.models.base import Base, SoftDeleteMixin
-from app.models.core import AuditAction, AuditLog, Clinic, Patient, User, UserRole
+from app.models.core import (
+    Appointment,
+    AppointmentStatus,
+    AppointmentType,
+    AuditAction,
+    AuditLog,
+    Clinic,
+    Patient,
+    User,
+    UserRole,
+)
 
 __all__ = [
     "AuditAction",
     "AuditLog",
+    "Appointment",
+    "AppointmentStatus",
+    "AppointmentType",
     "Base",
     "Clinic",
     "Patient",

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="space-y-6">
+    <section class="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+      <div>
+        <p class="text-sm font-semibold text-indigo-600">Clinic calendar</p>
+        <h2 class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Schedule</h2>
+        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Coordinate physician calendars, appointment types, and same-day flow without leaving the clinic workspace.</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50" href="/schedule?date={{ previous_date.isoformat() }}">Previous</a>
+        <a class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700" href="/schedule">Today</a>
+        <a class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50" href="/schedule?date={{ next_date.isoformat() }}">Next</a>
+      </div>
+    </section>
+
+    <section id="calendar-grid" class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      {% include "schedule/partials/calendar.html" %}
+    </section>
+
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.8fr)]">
+      <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-600">Live flow</p>
+            <h3 class="mt-1 text-2xl font-semibold text-slate-950">Today's Queue</h3>
+          </div>
+          <a class="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50" href="/queue">Open queue</a>
+        </div>
+        <div id="queue-rows" class="mt-5">
+          {% include "schedule/partials/queue_rows.html" %}
+        </div>
+      </section>
+
+      <div class="space-y-6">
+        {% if can_create %}
+          <section class="rounded-3xl border border-indigo-100 bg-indigo-50/60 p-6">
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">Existing patient</p>
+            <h3 class="mt-1 text-xl font-semibold text-slate-950">Book appointment</h3>
+            {% if patients and doctors and appointment_types %}
+              <form class="mt-5 space-y-4" method="post" action="/schedule/appointments" hx-post="/schedule/appointments" hx-target="#calendar-grid" hx-swap="innerHTML">
+                <label class="block text-sm font-medium text-slate-700">Patient
+                  <select class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" name="patient_id" required>
+                    <option value="">Select patient</option>
+                    {% for patient in patients %}<option value="{{ patient.id }}">{{ patient.name }} · {{ patient.date_of_birth.strftime("%b %-d, %Y") }}</option>{% endfor %}
+                  </select>
+                </label>
+                <label class="block text-sm font-medium text-slate-700">Physician
+                  <select class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" name="doctor_id" required>
+                    {% for doctor in doctors %}<option value="{{ doctor.id }}">{{ doctor.full_name }}</option>{% endfor %}
+                  </select>
+                </label>
+                <label class="block text-sm font-medium text-slate-700">Appointment type
+                  <select class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" name="appointment_type_id" required>
+                    {% for appointment_type in appointment_types %}<option value="{{ appointment_type.id }}">{{ appointment_type.name }} · {{ appointment_type.default_duration_minutes }} min</option>{% endfor %}
+                  </select>
+                </label>
+                <div class="grid gap-4 sm:grid-cols-2">
+                  <label class="block text-sm font-medium text-slate-700">Scheduled time
+                    <input class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" type="datetime-local" name="scheduled_at" value="{{ selected_date.isoformat() }}T09:00" required />
+                  </label>
+                  <label class="block text-sm font-medium text-slate-700">Duration override
+                    <input class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" type="number" name="duration_minutes" min="1" placeholder="Use type default" />
+                  </label>
+                </div>
+                <button class="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700" type="submit">Add to schedule</button>
+              </form>
+            {% else %}
+              <p class="mt-4 rounded-xl border border-dashed border-indigo-200 bg-white px-4 py-4 text-sm leading-6 text-slate-500">Add at least one physician, patient, and appointment type before booking.</p>
+            {% endif %}
+          </section>
+
+          <section class="rounded-3xl border border-amber-200 bg-amber-50 p-6">
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Walk-in</p>
+            <h3 class="mt-1 text-xl font-semibold text-amber-950">Add to today's queue</h3>
+            {% if doctors and appointment_types %}
+              <form class="mt-5 space-y-4" method="post" action="/schedule/walk-ins" hx-post="/schedule/walk-ins" hx-target="#queue-rows" hx-swap="innerHTML">
+                <label class="block text-sm font-medium text-slate-700">Patient name
+                  <input class="mt-2 w-full rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-sm" name="name" required />
+                </label>
+                <div class="grid gap-4 sm:grid-cols-2">
+                  <label class="block text-sm font-medium text-slate-700">Date of birth
+                    <input class="mt-2 w-full rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-sm" type="date" name="date_of_birth" required />
+                  </label>
+                  <label class="block text-sm font-medium text-slate-700">Phone
+                    <input class="mt-2 w-full rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-sm" name="phone" />
+                  </label>
+                </div>
+                <label class="block text-sm font-medium text-slate-700">Physician
+                  <select class="mt-2 w-full rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-sm" name="doctor_id" required>{% for doctor in doctors %}<option value="{{ doctor.id }}">{{ doctor.full_name }}</option>{% endfor %}</select>
+                </label>
+                <label class="block text-sm font-medium text-slate-700">Appointment type
+                  <select class="mt-2 w-full rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-sm" name="appointment_type_id" required>{% for appointment_type in appointment_types %}<option value="{{ appointment_type.id }}">{{ appointment_type.name }}</option>{% endfor %}</select>
+                </label>
+                <button class="w-full rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-700" type="submit">Check in walk-in</button>
+              </form>
+            {% else %}
+              <p class="mt-4 text-sm leading-6 text-amber-900">Configure a physician and appointment type before adding walk-ins.</p>
+            {% endif %}
+          </section>
+        {% endif %}
+
+        {% if can_manage_types %}
+          <section id="appointment-types" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            {% include "schedule/partials/appointment_types.html" %}
+          </section>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% endblock %}

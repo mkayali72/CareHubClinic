@@ -76,3 +76,18 @@ Prompt 3.T Test 19: PASS — Full regression run retained no-hard-delete impleme
 Prompt 3.T Test 20: PASS — Full regression run retained create/update/delete audit coverage.
 Prompt 3.T Test 21: PASS — Full regression run retained immutable audit-log protection coverage.
 Full regression suite: PASS — `python -m pytest -q` completed with 41 passed and 3 existing dependency deprecation warnings.
+
+## 2026-09-12 — Scheduling
+
+Test 1: PASS — Verified AppointmentStatus preserves the exact required order from scheduled through no_show.
+Test 2: PASS — Verified physician, nurse_ma, front_desk, and clinic_admin can access scheduling and queue views while billing_clerk receives 403.
+Test 3: PASS — Verified front_desk can create an existing-patient appointment with the appointment type's default duration and an audit record.
+Test 4: PASS — Verified physician and nurse_ma cannot create appointments through the direct POST route.
+Test 5: PASS — Verified a walk-in creates a Patient and checked_in Appointment together with the submitted contact information.
+Test 6: PASS — Verified queue actions advance one status at a time through done and audit each transition; terminal appointments cannot advance.
+Test 7: PASS — Verified clinic_admin can create and edit appointment types while front_desk cannot manage them.
+Test 8: PASS — Verified physician welcome pages show the signed-in physician's own today's queue and omit another physician's appointments.
+Test 9: PASS — Verified patient, physician, and appointment-type references from another clinic are rejected with no appointment created.
+Migration: PASS — Applied `0004_scheduling` and confirmed it is the Alembic database head.
+Workflow: PASS — Restarted the OB-GYN Clinic App workflow; local `/health` returned `{"status":"ok","database":"ok"}` and `/login` returned HTTP 200.
+Full regression suite: PASS — `python -m pytest -q` completed with 50 passed and 3 existing dependency deprecation warnings.

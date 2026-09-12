@@ -95,3 +95,33 @@ alembic upgrade head
 - [ ] For a deleted patient, use the administrative restore workflow backed by
       `restore_record`, then confirm the record returns to every role's list and
       retains its clinical data.
+
+## 2026-09-12 — Scheduling
+
+Use a clinic with at least one active physician and one active user for each
+staff role. Apply the current migrations first:
+
+```bash
+alembic upgrade head
+```
+
+- [ ] As `clinic_admin`, open `/schedule`, create an appointment type, edit its
+      name and default duration, and confirm the updated type is used by the
+      booking form.
+- [ ] As `front_desk`, book an existing patient for a physician; confirm the
+      appointment appears in the calendar column at the requested time and
+      uses the type's default duration when no override is entered.
+- [ ] Confirm the calendar date controls move between days and the schedule
+      grid shows physician columns with appointment blocks sized by duration.
+- [ ] As `front_desk`, submit the walk-in form with a new patient's name, date
+      of birth, phone, physician, and type; confirm one Patient and one
+      `checked_in` Appointment are created and appear in `/queue`.
+- [ ] As `physician`, `nurse_ma`, and `front_desk`, open `/queue` and advance an
+      appointment through `scheduled`, `checked_in`, `in_room`, `with_doctor`,
+      and `done`; confirm each action updates the row and writes an AuditLog.
+- [ ] Sign in as a physician and confirm `/welcome` is the physician's own
+      today's queue; confirm queue patient links open the visit placeholder.
+- [ ] Sign in as `billing_clerk`; confirm `/schedule`, `/queue`, and
+      `/api/appointments` return 403.
+- [ ] Confirm appointments, patients, physicians, and appointment types from a
+      different clinic cannot be selected or retrieved through direct requests.
