@@ -211,6 +211,43 @@ and 3 existing dependency deprecation warnings.
 Compilation and diff checks: PASS — `python -m compileall -q app tests alembic`
 and `git diff --check` completed without errors.
 
+## Prompt 11.T — Licensing Enforcement
+
+QA plan reference: `04-qa-test-plan.md` was not present in the workspace; the
+requested Test 26–33 cases were implemented against the current Licensing
+contract.
+
+Test 26: PASS — With a valid, non-expired License, exercised representative
+HTTP writes and reads across Patients, Scheduling, Visits, Labs,
+Prescriptions, and enabled Billing using the appropriate clinic roles.
+Test 27: PASS — With expiration in an active grace period, reads across all
+six modules remained available while representative patient, scheduling,
+visit, lab, prescription, and billing writes returned HTTP 423 read-only
+responses.
+Test 28: PASS — Verified the exact grace boundary evaluates as grace at the
+boundary and expired immediately after it; writes succeed on the active side
+before expiration and are rejected both inside read-only grace and past grace.
+This follows the existing product rule that grace is read-only.
+Test 29: PASS — Renewed a clinic from an already authenticated read-only
+session and confirmed writes resumed immediately without an app restart.
+Test 30: PASS — Confirmed the visit workspace includes localStorage draft
+capture/restoration, blocked a transitioned visit save with `HX-Reswap: none`,
+and confirmed the draft content was not persisted as a partial visit.
+Test 31: PASS — Parsed the clinic-admin license page and confirmed displayed
+days remaining and expiration match the database state before and immediately
+after renewal.
+Test 32: PASS — Sent active-license client headers while the server-side
+License was expired past grace; the server rejected the write with HTTP 423.
+Test 33: PASS — Added a physician beyond the current clinic user set and
+confirmed creation succeeds because no licensed physician-count restriction
+has been implemented; License status remained active.
+Prompt 3.T–10.T full regression: PASS — `python -m pytest -q` completed with
+143 passed and 3 existing dependency deprecation warnings.
+Licensing suite: PASS — `python -m pytest -q tests/test_licensing.py`
+completed with 14 passed and 2 existing dependency deprecation warnings.
+Compilation and diff checks: PASS — `python -m compileall -q app tests alembic`
+and `git diff --check` completed without errors.
+
 ## 2026-09-12 — Licensing and subscription enforcement
 
 Focused Licensing suite: PASS — `python -m pytest -q tests/test_licensing.py`
