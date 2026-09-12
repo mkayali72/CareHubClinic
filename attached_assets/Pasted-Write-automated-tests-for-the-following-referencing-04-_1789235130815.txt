@@ -1,0 +1,34 @@
+Write automated tests for the following, referencing 04-qa-test-plan.md. This
+module touches every write path in the app, so be thorough:
+
+- Test 26: with a valid, non-expired License, confirm full read/write access
+  across every module built so far.
+- Test 27: set the test clinic's License to expired with a grace period still
+  active, and confirm write requests across MULTIPLE modules (patients,
+  scheduling, visits, labs, prescriptions, and billing if enabled) are all
+  correctly downgraded to read-only rather than crashing or fully locking out —
+  reads should still succeed.
+- Test 28: set expires_at to just past the grace period boundary and confirm
+  writes are now fully rejected; set it to just inside the boundary and confirm
+  writes still succeed — test the exact edge.
+- Test 29: after being in read-only/locked state, update the License back to
+  valid and confirm write access resumes immediately without requiring an app
+  restart.
+- Test 30: simulate an in-progress, unsaved visit-note edit at the moment the
+  license transitions to read-only, and confirm the already-entered content is
+  not discarded (test whatever preservation mechanism we implemented).
+- Test 31: confirm the license status shown to clinic_admin (days remaining)
+  matches the actual database state, including immediately after a renewal.
+- Test 32: attempt a write request with a manipulated/stale client state that
+  assumes a valid license, while the server-side License record is actually
+  expired past grace, and confirm the server rejects it regardless of what the
+  client believes.
+- Test 33: add a new physician user beyond whatever licensed-count rule we
+  implemented and confirm the intended behavior (block or reflect in next
+  billing cycle — assert whichever we built).
+
+Also re-run Prompt 3.T through 10.T in full — confirm the license middleware
+hasn't broken any previously-passing write operation when the license is valid.
+Fix any failures. Record every test's outcome in TEST_RESULTS.md under a
+"Prompt 11.T — Licensing Enforcement" heading, one PASS/FAIL/MANUAL line per test
+number, with a clear explanation under any FAIL.
