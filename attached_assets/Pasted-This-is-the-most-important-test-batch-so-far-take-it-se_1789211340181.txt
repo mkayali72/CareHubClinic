@@ -1,0 +1,49 @@
+This is the most important test batch so far — take it seriously. Write automated
+tests for the following, referencing 04-qa-test-plan.md:
+
+- Test 63: creating a Visit of each visit_type (prenatal, gyn_annual, postpartum,
+  problem_focused) loads/saves the correct field set for that type.
+- Test 64: gestational-age calculation from LMP/EDD is correct at several points —
+  early pregnancy, near-term, and past the original EDD after a corrected EDD is
+  set.
+- Test 65: structured ultrasound fields (EFW, AFI, placenta location, presentation,
+  biometry) save and reload correctly.
+- Test 66: create multiple visits within one PregnancyEpisode, including one
+  entered out of chronological order, and confirm the trend-chart data source
+  reflects all of them correctly ordered by visit date, not entry order.
+- Test 67: create a prenatal visit at a gestational age where the glucose/GBS/
+  Rhogam reminders should trigger, and one where they should not, and confirm the
+  reminder logic fires only when appropriate — including confirming these
+  reminders do NOT fire on a gyn_annual visit.
+- Test 68: dismiss a screening reminder and confirm it does not get marked as
+  completed/done anywhere in the data — it should be purely a UI dismissal.
+- Test 69: create two separate pregnancies (episodes) for the same patient and
+  confirm each groups only its own visits — no cross-contamination.
+- Test 70: create a DeliveryOutcome linked to a PregnancyEpisode and confirm it
+  displays correctly alongside that episode's visit history.
+- Test 71: attempt to save a Visit with an invalid/non-existent ICD-10 code and
+  confirm it's rejected; confirm a valid code saves and displays correctly.
+- Test 72: create a PhraseTemplate as one physician user, insert it into a note as
+  a different physician user (confirm clinic-wide sharing works), then edit the
+  original template and confirm the previously-saved note's text is UNCHANGED
+  (i.e. we stored a copy, not a live reference).
+- Test 73: attempt to directly edit a Visit's fields via the API after its
+  locked_at time has passed and confirm the API rejects it — do not just check
+  that a UI button is disabled.
+- Test 74: create a VisitAmendment on a locked Visit and confirm: the original
+  content is untouched and still visible, the amendment is separately visible,
+  correctly attributed to the amending user, and correctly timestamped.
+- Test 75: create a ProcedureRecord of each type (IUD insertion/removal,
+  colposcopy, endometrial biopsy) and confirm it saves correctly and appears
+  linked to the correct Visit.
+- Test 76: simulate saving a Visit with only some fields filled in (partial save)
+  and confirm no data already entered is lost — test whatever partial-save/draft
+  behavior we actually implemented.
+
+Also re-run Prompt 3.T, 4.T, and 5.T in full. Fix any failures — do not move on
+until this entire batch passes, since this module is the foundation for Labs and
+Prescriptions in the next two prompts. Record every test's outcome in
+TEST_RESULTS.md under a "Prompt 6.T — Clinical Visit Documentation" heading, one
+PASS/FAIL/MANUAL line per test number, with a clear explanation under any FAIL —
+this is the largest and most important batch so far, so be thorough in the
+explanations, not just the pass/fail label.
