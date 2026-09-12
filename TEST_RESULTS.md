@@ -91,3 +91,13 @@ Test 9: PASS — Verified patient, physician, and appointment-type references fr
 Migration: PASS — Applied `0004_scheduling` and confirmed it is the Alembic database head.
 Workflow: PASS — Restarted the OB-GYN Clinic App workflow; local `/health` returned `{"status":"ok","database":"ok"}` and `/login` returned HTTP 200.
 Full regression suite: PASS — `python -m pytest -q` completed with 50 passed and 3 existing dependency deprecation warnings.
+
+## 2026-09-12 — Prompt 5.T — Scheduling
+
+Test 50: PASS — For every appointment type, created an appointment, edited its scheduled time and duration through the appointment endpoint, then cancelled it; each record retained its identity, type, edited values, and final `cancelled` status.
+Test 51: PASS — Created two overlapping appointments for the same physician and confirmed both were accepted; this explicitly matches the current behavior because the schema has no room field or overlap-blocking rule.
+Test 52: PASS — As `front_desk`, created a new walk-in patient and checked-in appointment through one request; confirmed the Patient, Appointment, contact data, today's date, and `checked_in` status persisted together.
+Test 53: PASS — Advanced `checked_in` → `in_room` → `with_doctor` → `done` through the intended queue endpoint and confirmed a second authenticated role saw each persisted status after re-querying the queue.
+Prompt 3.T regression: PASS — Re-ran `tests/test_foundation.py` and confirmed 41 tests passed with 3 existing dependency deprecation warnings.
+Prompt 4.T regression: PASS — Re-ran `tests/test_patients.py` as part of the full patient regression group and confirmed 41 combined foundation/patient tests passed with 3 existing dependency deprecation warnings.
+Full regression suite: PASS — `python -m pytest -q` completed with 53 passed and 3 existing dependency deprecation warnings.

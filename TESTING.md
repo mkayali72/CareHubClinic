@@ -111,6 +111,12 @@ alembic upgrade head
 - [ ] As `front_desk`, book an existing patient for a physician; confirm the
       appointment appears in the calendar column at the requested time and
       uses the type's default duration when no override is entered.
+- [ ] For every appointment type, create an appointment, edit its time or
+      duration through the appointment edit action, then cancel it; confirm the
+      same record retains its identity and ends with `cancelled` status.
+- [ ] Create two overlapping appointments for the same physician; confirm the
+      current intended behavior is that both are accepted because the product
+      does not yet model rooms or block overlaps.
 - [ ] Confirm the calendar date controls move between days and the schedule
       grid shows physician columns with appointment blocks sized by duration.
 - [ ] As `front_desk`, submit the walk-in form with a new patient's name, date
@@ -119,6 +125,11 @@ alembic upgrade head
 - [ ] As `physician`, `nurse_ma`, and `front_desk`, open `/queue` and advance an
       appointment through `scheduled`, `checked_in`, `in_room`, `with_doctor`,
       and `done`; confirm each action updates the row and writes an AuditLog.
+- [ ] Open the same queue in two actual browser sessions as different roles.
+      Advance the appointment in one session, refresh or trigger the queue
+      request in the other, and confirm the persisted status is visible. The
+      current app uses htmx refreshes and does not provide server-pushed
+      real-time updates without a browser request.
 - [ ] Sign in as a physician and confirm `/welcome` is the physician's own
       today's queue; confirm queue patient links open the visit placeholder.
 - [ ] Sign in as `billing_clerk`; confirm `/schedule`, `/queue`, and

@@ -19,6 +19,7 @@ from app.services.scheduling import (
     SCHEDULING_WRITE_ROLES,
     advance_appointment_status,
     calendar_columns,
+    cancel_appointment,
     create_appointment,
     create_appointment_type,
     create_walk_in,
@@ -28,6 +29,7 @@ from app.services.scheduling import (
     get_physicians,
     get_schedulable_patients,
     serialize_appointment,
+    update_appointment,
     update_appointment_type,
 )
 
@@ -339,6 +341,86 @@ def create_walk_in_route(
             context=_queue_context(request, db, current_user, date.today()),
         )
     return RedirectResponse(url="/queue", status_code=303)
+
+
+@router.post("/schedule/appointments/{appointment_id}/edit", response_class=HTMLResponse)
+def edit_appointment_route(
+    request: Request,
+    appointment_id: int,
+    patient_id: int = Form(...),
+    doctor_id: int = Form(...),
+    appointment_type_id: int = Form(...),
+    scheduled_at: str = Form(...),
+    duration_minutes: int = Form(0),
+    current_user: User = Depends(require_roles(*SCHEDULING_WRITE_ROLES)),
+    db: Session = Depends(get_db),
+) -> Response:
+    """Edit an active appointment for an existing patient."""
+
+    appointment = get_appointment_for_user(db, appointment_id, current_user)
+    if appointment is None:
+        raise HTTPException(status_code=404, detail="Appointment not found.")
+    try:
+        update_appointment(
+            db=db,
+            appointment=appointment,
+            actor=current_user,
+            patient_id=patient_id,
+            doctor_id=doctor_id,
+            appointment_type_id=appointment_type_id,
+            scheduled_at=parse_scheduled_at(scheduled_at),
+            duration_minutes=duration_minutes or None,
+        )
+        db.commit()
+    except (PermissionError, ValueError) as error:
+        db.rollback()
+        _raise_service_error(error)
+    if request.headers.get("HX-Request") == "true":
+        return templates.TemplateResponse(
+            request=request,
+            name="schedule/partials/calendar.html",
+            context=_schedule_context(
+                request,
+                db,
+                current_user,
+                appointment.scheduled_at.date(),
+            ),
+        )
+    return RedirectResponse(
+        url=f"/schedule?date={appointment.scheduled_at.date().isoformat()}",
+        status_code=303,
+    )
+
+
+@router.post("/schedule/appointments/{appointment_id}/cancel")
+def cancel_appointment_route(
+    request: Request,
+    appointment_id: int,
+    current_user: User = Depends(require_roles(*SCHEDULING_WRITE_ROLES)),
+    db: Session = Depends(get_db),
+) -> Response:
+    """Cancel an active appointment without deleting its record."""
+
+    appointment = get_appointment_for_user(db, appointment_id, current_user)
+    if appointment is None:
+        raise HTTPException(status_code=404, detail="Appointment not found.")
+    appointment_date = appointment.scheduled_at.date()
+    try:
+        cancel_appointment(db, appointment, current_user)
+        db.commit()
+    except (PermissionError, ValueError) as error:
+        db.rollback()
+        _raise_service_error(error)
+    if request.headers.get("HX-Request") == "true":
+        return templates.TemplateResponse(
+            request=request,
+            name="schedule/partials/queue_rows.html",
+            context=_queue_context(request, db, current_user, appointment_date),
+        )
+    return RedirectResponse(
+        url=f"/queue?date={appointment_date.isoformat()}",
+        status_code=303,
+    )
 
 
 @router.post("/schedule/appointments/{appointment_id}/advance")

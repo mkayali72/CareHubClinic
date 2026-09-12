@@ -1,8 +1,6 @@
 """Automated coverage for the Scheduling module."""
 
 from datetime import date, datetime
-
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -20,7 +18,6 @@ from app.models import (
 )
 from app.services.auth import create_user
 from app.services.patients import create_patient
-from app.services.scheduling import create_appointment
 
 
 def login_as(client: TestClient, user: User) -> None:
@@ -182,6 +179,124 @@ def test_front_desk_can_create_existing_patient_appointment_with_type_default(
     ) is not None
 
 
+def test_each_appointment_type_can_create_edit_and_cancel_an_appointment(
+    client: TestClient,
+    seeded_users: dict[UserRole, User],
+    db_session: Session,
+) -> None:
+    """Verify appointment lifecycle actions work for every clinic type."""
+
+    patient = seed_patient(db_session, seeded_users[UserRole.CLINIC_ADMIN])
+    appointment_types = [
+        seed_type(db_session, seeded_users[UserRole.CLINIC_ADMIN], "Prenatal"),
+        seed_type(db_session, seeded_users[UserRole.CLINIC_ADMIN], "Postpartum"),
+        seed_type(db_session, seeded_users[UserRole.CLINIC_ADMIN], "Ultrasound"),
+    ]
+    login_as(client, seeded_users[UserRole.FRONT_DESK])
+
+    for index, appointment_type in enumerate(appointment_types):
+        original_time = f"{date.today().isoformat()}T{9 + index:02d}:00"
+        edited_time = f"{date.today().isoformat()}T{13 + index:02d}:30"
+        create_response = client.post(
+            "/schedule/appointments",
+            data={
+                "patient_id": patient.id,
+                "doctor_id": seeded_users[UserRole.PHYSICIAN].id,
+                "appointment_type_id": appointment_type.id,
+                "scheduled_at": original_time,
+            },
+            follow_redirects=False,
+        )
+        assert create_response.status_code == 303
+        appointment = db_session.scalar(
+            select(Appointment).where(
+                Appointment.appointment_type_id == appointment_type.id
+            )
+        )
+        assert appointment is not None
+        assert appointment.status is AppointmentStatus.SCHEDULED
+        assert appointment.duration_minutes == appointment_type.default_duration_minutes
+
+        edit_response = client.post(
+            f"/schedule/appointments/{appointment.id}/edit",
+            data={
+                "patient_id": patient.id,
+                "doctor_id": seeded_users[UserRole.PHYSICIAN].id,
+                "appointment_type_id": appointment_type.id,
+                "scheduled_at": edited_time,
+                "duration_minutes": "45",
+            },
+            follow_redirects=False,
+        )
+        assert edit_response.status_code == 303
+        db_session.refresh(appointment)
+        assert appointment.scheduled_at == datetime.fromisoformat(edited_time)
+        assert appointment.duration_minutes == 45
+        assert appointment.appointment_type_id == appointment_type.id
+
+        cancel_response = client.post(
+            f"/schedule/appointments/{appointment.id}/cancel",
+            follow_redirects=False,
+        )
+        assert cancel_response.status_code == 303
+        db_session.refresh(appointment)
+        assert appointment.status is AppointmentStatus.CANCELLED
+        assert appointment.patient_id == patient.id
+        assert appointment.appointment_type_id == appointment_type.id
+
+
+def test_overlapping_same_doctor_appointments_are_allowed_by_current_policy(
+    client: TestClient,
+    seeded_users: dict[UserRole, User],
+    db_session: Session,
+) -> None:
+    """Assert the current behavior: overlaps are allowed, not blocked.
+
+    The scheduling schema currently has no room field and no overlap constraint,
+    so this test intentionally locks in the existing allow behavior until a
+    room-allocation decision is made.
+    """
+
+    patient_one = seed_patient(db_session, seeded_users[UserRole.CLINIC_ADMIN], "Overlap One")
+    patient_two = seed_patient(db_session, seeded_users[UserRole.CLINIC_ADMIN], "Overlap Two")
+    appointment_type = seed_type(db_session, seeded_users[UserRole.CLINIC_ADMIN])
+    login_as(client, seeded_users[UserRole.FRONT_DESK])
+    shared_doctor = seeded_users[UserRole.PHYSICIAN].id
+
+    first = client.post(
+        "/schedule/appointments",
+        data={
+            "patient_id": patient_one.id,
+            "doctor_id": shared_doctor,
+            "appointment_type_id": appointment_type.id,
+            "scheduled_at": f"{date.today().isoformat()}T09:00",
+            "duration_minutes": "60",
+        },
+        follow_redirects=False,
+    )
+    second = client.post(
+        "/schedule/appointments",
+        data={
+            "patient_id": patient_two.id,
+            "doctor_id": shared_doctor,
+            "appointment_type_id": appointment_type.id,
+            "scheduled_at": f"{date.today().isoformat()}T09:30",
+            "duration_minutes": "30",
+        },
+        follow_redirects=False,
+    )
+
+    assert first.status_code == 303
+    assert second.status_code == 303
+    overlapping = list(
+        db_session.scalars(
+            select(Appointment).where(Appointment.doctor_id == shared_doctor)
+        )
+    )
+    assert len(overlapping) == 2
+    assert {appointment.scheduled_at.hour for appointment in overlapping} == {9}
+
+
 def test_only_front_desk_or_admin_can_create_appointment_routes(
     client: TestClient,
     seeded_users: dict[UserRole, User],
@@ -279,6 +394,50 @@ def test_queue_status_action_advances_only_one_step_and_audits(
         AuditLog.entity_id == appointment.id,
         AuditLog.action == AuditAction.UPDATE,
     ).count() == 4
+
+
+def test_queue_status_sequence_is_visible_to_a_second_authenticated_viewer(
+    client: TestClient,
+    seeded_users: dict[UserRole, User],
+    db_session: Session,
+) -> None:
+    """Verify each persisted transition is visible when another role re-queries."""
+
+    appointment_type = seed_type(db_session, seeded_users[UserRole.CLINIC_ADMIN])
+    patient = seed_patient(db_session, seeded_users[UserRole.CLINIC_ADMIN])
+    appointment = seed_appointment(
+        db_session,
+        seeded_users[UserRole.PHYSICIAN],
+        patient,
+        appointment_type,
+        scheduled_at=datetime.combine(date.today(), datetime.min.time()).replace(
+            hour=10,
+            minute=0,
+        ),
+    )
+    login_as(client, seeded_users[UserRole.FRONT_DESK])
+
+    with TestClient(client.app) as observer:
+        login_as(observer, seeded_users[UserRole.NURSE_MA])
+        for expected_status in (
+            AppointmentStatus.CHECKED_IN,
+            AppointmentStatus.IN_ROOM,
+            AppointmentStatus.WITH_DOCTOR,
+            AppointmentStatus.DONE,
+        ):
+            response = client.post(
+                f"/schedule/appointments/{appointment.id}/advance",
+                follow_redirects=False,
+            )
+            assert response.status_code == 303
+            db_session.refresh(appointment)
+            assert appointment.status is expected_status
+
+            queue_response = observer.get(
+                f"/queue?date={date.today().isoformat()}"
+            )
+            assert queue_response.status_code == 200
+            assert expected_status.value.replace("_", " ").title() in queue_response.text
 
 
 def test_clinic_admin_can_create_and_edit_appointment_types(

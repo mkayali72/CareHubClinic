@@ -176,6 +176,18 @@ a new Patient and a `checked_in` Appointment in one transaction. The physician
 must be an active physician in the same clinic, and all patient, doctor, and
 appointment-type references are clinic-scoped in the service layer.
 
+Active appointments can be edited through
+`POST /schedule/appointments/{appointment_id}/edit` and cancelled through
+`POST /schedule/appointments/{appointment_id}/cancel`; cancellation preserves
+the row and changes its status to `cancelled`. Completed, cancelled, and
+no-show appointments cannot be edited or cancelled again.
+
+The current scheduling policy allows overlapping appointments for the same
+physician. There is no room field or overlap-blocking rule yet, so direct
+creation of overlapping appointments succeeds. This behavior is covered by
+the automated scheduling tests and should be revisited when room allocation
+requirements are defined.
+
 Clinic administrators can manage appointment types directly in the Schedule
 workspace. Billing clerks do not have scheduling or queue access.
 

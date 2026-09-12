@@ -309,6 +309,115 @@ def create_walk_in(
     return appointment
 
 
+def update_appointment(
+    db: Session,
+    appointment: Appointment,
+    actor: User,
+    patient_id: int,
+    doctor_id: int,
+    appointment_type_id: int,
+    scheduled_at: datetime,
+    duration_minutes: int | None = None,
+) -> Appointment:
+    """Edit an active appointment while preserving its audit history.
+
+    Args:
+        db: Request-scoped database session.
+        appointment: Existing appointment to edit.
+        actor: Staff user performing the edit.
+        patient_id: Replacement patient identifier.
+        doctor_id: Replacement physician identifier.
+        appointment_type_id: Replacement appointment type identifier.
+        scheduled_at: Replacement clinic-local date and time.
+        duration_minutes: Optional replacement duration, or the type default.
+
+    Returns:
+        The edited appointment.
+
+    Raises:
+        PermissionError: If the actor cannot edit appointments.
+        ValueError: If the appointment is terminal or any reference is invalid.
+    """
+
+    ensure_role(actor, SCHEDULING_WRITE_ROLES)
+    if actor.clinic_id != appointment.clinic_id:
+        raise PermissionError("The appointment does not belong to this clinic.")
+    if appointment.status in (
+        AppointmentStatus.DONE,
+        AppointmentStatus.CANCELLED,
+        AppointmentStatus.NO_SHOW,
+    ):
+        raise ValueError("Completed or closed appointments cannot be edited.")
+    patient, doctor, appointment_type, resolved_duration = validate_appointment_inputs(
+        db,
+        appointment.clinic_id,
+        patient_id,
+        doctor_id,
+        appointment_type_id,
+        scheduled_at,
+        duration_minutes,
+    )
+    changed_fields: list[str] = []
+    if appointment.patient_id != patient.id:
+        appointment.patient = patient
+        changed_fields.append("patient_id")
+    if appointment.doctor_id != doctor.id:
+        appointment.doctor = doctor
+        changed_fields.append("doctor_id")
+    if appointment.appointment_type_id != appointment_type.id:
+        appointment.appointment_type = appointment_type
+        changed_fields.append("appointment_type_id")
+    if appointment.scheduled_at != scheduled_at:
+        appointment.scheduled_at = scheduled_at
+        changed_fields.append("scheduled_at")
+    if appointment.duration_minutes != resolved_duration:
+        appointment.duration_minutes = resolved_duration
+        changed_fields.append("duration_minutes")
+    if changed_fields:
+        record_audit_event(
+            db=db,
+            actor_user_id=actor.id,
+            action=AuditAction.UPDATE,
+            entity_type="appointment",
+            entity_id=appointment.id,
+            details={"fields": changed_fields},
+        )
+    return appointment
+
+
+def cancel_appointment(
+    db: Session,
+    appointment: Appointment,
+    actor: User,
+) -> Appointment:
+    """Cancel an active appointment and write an immutable audit event."""
+
+    ensure_role(actor, SCHEDULING_WRITE_ROLES)
+    if actor.clinic_id != appointment.clinic_id:
+        raise PermissionError("The appointment does not belong to this clinic.")
+    if appointment.status in (
+        AppointmentStatus.DONE,
+        AppointmentStatus.CANCELLED,
+        AppointmentStatus.NO_SHOW,
+    ):
+        raise ValueError("This appointment is already closed.")
+    previous_status = appointment.status
+    appointment.status = AppointmentStatus.CANCELLED
+    record_audit_event(
+        db=db,
+        actor_user_id=actor.id,
+        action=AuditAction.UPDATE,
+        entity_type="appointment",
+        entity_id=appointment.id,
+        details={
+            "field": "status",
+            "from": previous_status.value,
+            "to": AppointmentStatus.CANCELLED.value,
+        },
+    )
+    return appointment
+
+
 def get_appointment_for_user(
     db: Session,
     appointment_id: int,
