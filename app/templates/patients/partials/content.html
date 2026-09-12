@@ -67,6 +67,22 @@
               <ul class="mt-2 space-y-1 text-sm text-slate-700">{% for item in patient.current_medications %}<li>{{ item.name }}{% if item.dose %} · {{ item.dose }}{% endif %}{% if item.frequency %} · {{ item.frequency }}{% endif %}</li>{% endfor %}</ul>
             {% else %}<p class="mt-1 text-sm text-slate-500">None recorded</p>{% endif %}
           </div>
+          <div class="mt-5 border-t border-slate-200 pt-4">
+            <div class="flex items-center justify-between gap-3">
+              <p class="text-xs uppercase tracking-[0.12em] text-slate-400">Active prescriptions</p>
+              <a class="text-xs font-semibold text-indigo-700 hover:text-indigo-900" href="/patients/{{ patient.id }}?tab=prescriptions">View all</a>
+            </div>
+            {% if current_prescriptions %}
+              <ul class="mt-2 space-y-2 text-sm text-slate-700">
+                {% for prescription in current_prescriptions[:4] %}
+                  <li class="rounded-xl bg-white px-3 py-2">
+                    <p class="font-semibold text-slate-800">{{ prescription.medication_definition.name }}</p>
+                    <p class="mt-0.5 text-xs text-slate-500">{{ prescription.dosage }} · {{ prescription.frequency }} · {{ prescription.duration }}</p>
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}<p class="mt-2 text-sm text-slate-500">No active prescriptions.</p>{% endif %}
+          </div>
         </div>
       {% else %}
         <div class="rounded-2xl border border-amber-200 bg-amber-50 p-5 lg:col-span-2">

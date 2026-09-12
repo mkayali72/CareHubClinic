@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="space-y-6">
+    <section>
+      <p class="text-sm font-semibold uppercase tracking-[0.16em] text-fuchsia-600">Clinic administration</p>
+      <h2 class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Medication formulary</h2>
+      <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-500">Maintain the clinic's selectable medications and the broad safety metadata used to prompt physicians. Editing this catalog changes future warnings; existing prescriptions keep their medication reference and audit history.</p>
+    </section>
+    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.14em] text-fuchsia-600">Add medication</p>
+      <form class="mt-4 grid gap-3 lg:grid-cols-[1.1fr_1.4fr_0.8fr_0.9fr_auto]" method="post" action="/admin/prescriptions/medications">
+        <input class="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" name="name" placeholder="Medication name" required />
+        <input class="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" name="description" placeholder="Description" />
+        <select class="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" name="pregnancy_safety_flag" required>{% for flag in safety_flags %}<option value="{{ flag.value }}">{{ flag.value|title }}</option>{% endfor %}</select>
+        <input class="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" name="allergy_category" placeholder="Allergy category" />
+        <button class="rounded-xl bg-fuchsia-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-fuchsia-800" type="submit">Add medication</button>
+      </form>
+    </section>
+    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="flex items-center justify-between gap-3"><div><p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Formulary entries</p><h3 class="mt-1 text-xl font-semibold text-slate-950">Clinic medication list</h3></div><span class="text-xs text-slate-400">{{ definitions|length }} entries</span></div>
+      <div class="mt-5 space-y-4">
+        {% for definition in definitions %}
+          <form class="rounded-2xl border border-slate-200 p-4" method="post" action="/admin/prescriptions/medications/{{ definition.id }}">
+            <div class="grid gap-3 lg:grid-cols-[1.1fr_1.4fr_0.8fr_0.9fr]">
+              <input class="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold" name="name" value="{{ definition.name }}" required />
+              <input class="rounded-xl border border-slate-200 px-3 py-2 text-sm" name="description" value="{{ definition.description }}" />
+              <select class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm" name="pregnancy_safety_flag" required>{% for flag in safety_flags %}<option value="{{ flag.value }}" {% if definition.pregnancy_safety_flag.value == flag.value %}selected{% endif %}>{{ flag.value|title }}</option>{% endfor %}</select>
+              <input class="rounded-xl border border-slate-200 px-3 py-2 text-sm" name="allergy_category" value="{{ definition.allergy_category }}" />
+            </div>
+            <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <label class="flex items-center gap-2 text-xs font-semibold text-slate-600"><input type="checkbox" name="active" {% if definition.active %}checked{% endif %} /> Available for prescribing</label>
+              <button class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-fuchsia-300 hover:text-fuchsia-700" type="submit">Save medication</button>
+            </div>
+          </form>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+{% endblock %}

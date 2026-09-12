@@ -24,6 +24,7 @@ from app.services.patients import (
     serialize_patient,
     update_patient,
 )
+from app.services.prescriptions import get_current_prescriptions
 
 router = APIRouter(tags=["patients"])
 templates = Jinja2Templates(directory="app/templates")
@@ -158,6 +159,7 @@ def _patient_or_404(db: Session, patient_id: int, user: User) -> Patient:
 
 def _detail_context(
     request: Request,
+    db: Session,
     patient: Patient,
     current_user: User,
     active_tab: str = "summary",
@@ -193,6 +195,11 @@ def _detail_context(
         "can_view_sensitive": can_view_clinical_patient_fields(current_user),
         "can_delete": current_user.role is UserRole.CLINIC_ADMIN,
         "billing_enabled": patient.clinic.billing_module_enabled,
+        "current_prescriptions": (
+            get_current_prescriptions(db, current_user, patient.id)
+            if can_view_clinical_patient_fields(current_user)
+            else []
+        ),
     }
 
 
@@ -452,7 +459,7 @@ def patient_detail(
     return templates.TemplateResponse(
         request=request,
         name="patients/detail.html",
-        context=_detail_context(request, patient, current_user, tab),
+        context=_detail_context(request, db, patient, current_user, tab),
     )
 
 
@@ -479,7 +486,7 @@ def edit_patient_form(
     return templates.TemplateResponse(
         request=request,
         name="patients/partials/content.html",
-        context=_detail_context(request, patient, current_user, show_form=True),
+        context=_detail_context(request, db, patient, current_user, show_form=True),
     )
 
 
@@ -571,7 +578,7 @@ def update_patient_route(
     return templates.TemplateResponse(
         request=request,
         name="patients/partials/content.html",
-        context=_detail_context(request, patient, current_user),
+        context=_detail_context(request, db, patient, current_user),
     )
 
 

@@ -87,6 +87,14 @@ class LabOrderStatus(str, Enum):
     REVIEWED = "reviewed"
 
 
+class PregnancySafetyFlag(str, Enum):
+    """Formulary pregnancy-safety classification values."""
+
+    TRUE = "true"
+    FALSE = "false"
+    UNKNOWN = "unknown"
+
+
 class AuditAction(str, Enum):
     """Allowed lifecycle actions recorded in the generic audit log."""
 
@@ -224,6 +232,14 @@ class Clinic(SoftDeleteMixin, Base):
         back_populates="clinic",
         cascade="save-update, merge",
     )
+    medication_definitions: Mapped[list["MedicationDefinition"]] = relationship(
+        back_populates="clinic",
+        cascade="save-update, merge",
+    )
+    prescriptions: Mapped[list["Prescription"]] = relationship(
+        back_populates="clinic",
+        cascade="save-update, merge",
+    )
 
 
 class Patient(SoftDeleteMixin, Base):
@@ -334,6 +350,10 @@ class Patient(SoftDeleteMixin, Base):
         cascade="save-update, merge",
     )
     lab_orders: Mapped[list["LabOrder"]] = relationship(
+        back_populates="patient",
+        cascade="save-update, merge",
+    )
+    prescriptions: Mapped[list["Prescription"]] = relationship(
         back_populates="patient",
         cascade="save-update, merge",
     )
@@ -524,6 +544,11 @@ class User(SoftDeleteMixin, Base):
     reviewed_lab_results: Mapped[list["LabResult"]] = relationship(
         back_populates="reviewed_by_user",
         foreign_keys="LabResult.reviewed_by_user_id",
+        cascade="save-update, merge",
+    )
+    prescriptions: Mapped[list["Prescription"]] = relationship(
+        back_populates="prescribed_by_user",
+        foreign_keys="Prescription.prescribed_by_user_id",
         cascade="save-update, merge",
     )
 
@@ -835,6 +860,10 @@ class Visit(SoftDeleteMixin, Base):
         back_populates="visit",
         cascade="save-update, merge",
     )
+    prescriptions: Mapped[list["Prescription"]] = relationship(
+        back_populates="visit",
+        cascade="save-update, merge",
+    )
 
 
 class LabTestDefinition(Base):
@@ -1062,6 +1091,153 @@ class LabResult(Base):
     )
     reviewed_by_user: Mapped["User | None"] = relationship(
         foreign_keys=[reviewed_by_user_id],
+    )
+
+
+class MedicationDefinition(Base):
+    """Represent one clinic-editable medication formulary entry.
+
+    ``pregnancy_safety_flag`` is intentionally tri-state. ``false`` means the
+    clinic marks the medication unsafe during an active pregnancy, ``true``
+    means the clinic marks it acceptable for this broad formulary check, and
+    ``unknown`` means the classification is not established in this catalog.
+    The prescription service warns for both ``false`` and ``unknown`` rather
+    than treating an unknown value as safe.
+    """
+
+    __tablename__ = "medication_definitions"
+    __table_args__ = (
+        UniqueConstraint(
+            "clinic_id",
+            "name",
+            name="uq_medication_definitions_clinic_name",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    clinic_id: Mapped[int] = mapped_column(
+        ForeignKey("clinics.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    pregnancy_safety_flag: Mapped[PregnancySafetyFlag] = mapped_column(
+        SqlEnum(
+            PregnancySafetyFlag,
+            name="pregnancy_safety_flag",
+            values_callable=enum_values,
+        ),
+        nullable=False,
+        default=PregnancySafetyFlag.UNKNOWN,
+        server_default=PregnancySafetyFlag.UNKNOWN.value,
+        index=True,
+    )
+    allergy_category: Mapped[str] = mapped_column(
+        String(128),
+        nullable=False,
+        default="",
+        server_default="",
+        comment="Normalized conflict category such as penicillin, sulfa, or nsaid.",
+    )
+    active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    clinic: Mapped[Clinic] = relationship(back_populates="medication_definitions")
+    prescriptions: Mapped[list["Prescription"]] = relationship(
+        back_populates="medication_definition",
+        cascade="save-update, merge",
+    )
+
+
+class Prescription(SoftDeleteMixin, Base):
+    """Represent a physician prescription attached to a visit and patient.
+
+    Warning acknowledgments are stored on the prescription as an audit-friendly
+    record that the prescriber saw and explicitly accepted the applicable
+    formulary warnings before confirming the order.
+    """
+
+    __tablename__ = "prescriptions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    clinic_id: Mapped[int] = mapped_column(
+        ForeignKey("clinics.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    visit_id: Mapped[int] = mapped_column(
+        ForeignKey("visits.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    patient_id: Mapped[int] = mapped_column(
+        ForeignKey("patients.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    medication_definition_id: Mapped[int] = mapped_column(
+        ForeignKey("medication_definitions.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    prescribed_by_user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    dosage: Mapped[str] = mapped_column(String(255), nullable=False)
+    frequency: Mapped[str] = mapped_column(String(255), nullable=False)
+    duration: Mapped[str] = mapped_column(String(255), nullable=False)
+    pregnancy_warning_acknowledged: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+    )
+    allergy_warning_acknowledged: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+    )
+    prescribed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    clinic: Mapped[Clinic] = relationship(back_populates="prescriptions")
+    visit: Mapped[Visit] = relationship(back_populates="prescriptions")
+    patient: Mapped[Patient] = relationship(back_populates="prescriptions")
+    medication_definition: Mapped[MedicationDefinition] = relationship(
+        back_populates="prescriptions",
+    )
+    prescribed_by_user: Mapped["User"] = relationship(
+        back_populates="prescriptions",
+        foreign_keys=[prescribed_by_user_id],
     )
 
 

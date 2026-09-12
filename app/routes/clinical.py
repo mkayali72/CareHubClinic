@@ -47,6 +47,7 @@ from app.services.clinical import (
     update_pregnancy_episode,
     update_visit,
 )
+from app.services.prescriptions import get_current_prescriptions
 
 router = APIRouter(tags=["clinical"])
 templates = Jinja2Templates(directory="app/templates")
@@ -233,6 +234,7 @@ def _clinical_context(
         "saved": saved,
         "next_action_done": next_action_done,
         "free_text_fields": FREE_TEXT_FIELDS,
+        "current_prescriptions": get_current_prescriptions(db, user, patient.id),
     }
 
 

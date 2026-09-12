@@ -223,3 +223,51 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
       include attachment handling and `X-Content-Type-Options: nosniff`.
 - [ ] As `front_desk` and `billing_clerk`, confirm the lab panel, Pending Labs,
       result download, and admin catalog routes are denied.
+
+## 2026-09-12 — Prescriptions
+
+Apply all migrations and start the documented FastAPI workflow before testing:
+
+```bash
+alembic upgrade head
+python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+```
+
+- [ ] As a `clinic_admin`, open `/admin/prescriptions`; confirm the seeded
+      OB/GYN formulary is present and edit a medication's name, description,
+      pregnancy flag, allergy category, and active status.
+- [ ] Deactivate a formulary entry and confirm it no longer appears in the
+      prescribing panel; reactivate it and confirm it returns. Confirm an
+      existing prescription still displays its original formulary reference.
+- [ ] As a physician, open a saved visit and launch **Open prescription panel**.
+      Confirm the slide-over opens without navigating away or replacing the
+      in-progress visit note.
+- [ ] Confirm a prescription requires medication, dosage, frequency, and
+      duration, is linked to both the current visit and patient, and appears
+      on the patient Summary under **Active prescriptions** and on the
+      Prescriptions tab.
+- [ ] Give the patient an active pregnancy episode and select a formulary
+      entry marked `false`; confirm a clear pregnancy warning appears before
+      confirmation. Confirm `unknown` also produces an uncertainty warning.
+- [ ] Attempt to submit a pregnancy-warning prescription without the
+      acknowledgment checkbox; confirm the server rejects it and does not
+      create a row. Acknowledge the warning and confirm the prescription is
+      created with the acknowledgment recorded.
+- [ ] Record an allergy such as `penicillin`, select a medication categorized
+      as `penicillin`, and confirm the allergy warning appears. Confirm a
+      missing allergy acknowledgment is rejected, then acknowledge it and
+      confirm the prescription.
+- [ ] Confirm an allergy warning and pregnancy warning can appear together and
+      that both acknowledgments are required before the physician can confirm.
+- [ ] Sign in as `nurse_ma` and `clinic_admin`; confirm they can review the
+      panel/current medication history but a direct prescription confirmation
+      request returns 403. Confirm front-desk and billing roles cannot access
+      clinical prescription routes or sensitive medication data.
+- [ ] Open **Print / save PDF** for a prescription. Confirm the standalone
+      print view includes clinic name, configured `Clinic.branding_reference`
+      logo, patient, visit date, prescriber, and full directions. Use the
+      browser print dialog to save a PDF and confirm the toolbar is omitted
+      from the printed page.
+- [ ] Confirm prescription queries exclude soft-deleted rows, while the
+      retained row and its audit history remain available through an
+      administrative include-deleted inspection.

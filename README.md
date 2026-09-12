@@ -319,6 +319,56 @@ and the PostgreSQL lab status enum. It also seeds the starter test list for
 clinics that already exist. New clinics are lazily seeded on first lab catalog
 access so the same behavior works for local and Docker-created tenants.
 
+## Prescriptions
+
+The Prescriptions module starts from a saved visit and opens an HTMX slide-over
+at `/visits/{visit_id}/prescriptions/order-panel`, so a physician can select a
+clinic formulary medication and enter dosage, frequency, and duration without
+leaving the note. Prescription confirmation is physician-only; clinical
+support roles can review the current medication history but cannot confirm a
+new prescription.
+
+Each clinic receives a seeded OB/GYN-relevant formulary on first access. A
+`clinic_admin` can edit the medication name, description, active status,
+pregnancy-safety classification (`true`, `false`, or `unknown`), and
+`allergy_category` at `/admin/prescriptions`. Deactivating a medication removes
+it from future prescribing without changing existing prescription history.
+
+### Patient-safety checks
+
+The server recalculates warnings for every confirmation request; browser
+checkboxes are not trusted. A pregnancy warning appears when the patient has
+an active `PregnancyEpisode` and the selected formulary entry is marked
+`false` (unsafe) or `unknown` (not classified). A separate allergy warning
+appears when a structured patient allergy matches the medication name or
+`allergy_category`, using case/punctuation normalization and known aliases
+such as penicillin, sulfa, and NSAID labels. Reactions and severity are shown
+as patient context but do not independently create a match.
+
+These are explicit soft warnings, not hard blocks. The physician must
+acknowledge every warning that is present before the server creates the
+prescription, and the acknowledgment is stored on the prescription and in the
+AuditLog details. The workflow does not hard-block because a broad formulary
+classification cannot account for dose, gestational timing, alternatives, or
+patient-specific clinical necessity; a physician may knowingly prescribe an
+exception. The prompts are not a drug-interaction service and do not replace
+clinical judgment or a patient-specific reference check.
+
+Active prescriptions appear on the clinical Patient Summary and the
+Prescriptions tab. Each has a print-friendly, clinic-branded view at
+`/prescriptions/{id}/print` with the `Clinic.branding_reference` logo when
+configured. Use the browser's **Print / Save as PDF** control to produce a
+PDF without adding a non-portable PDF runtime dependency. Prescription rows
+are soft-deletable and remain linked to their original visit and formulary
+definition for audit history.
+
+## Prescription schema sequencing
+
+`0008_prescriptions` creates the tri-state pregnancy-safety enum, clinic
+medication formulary, soft-deletable prescriptions, warning acknowledgment
+fields, indexes, and starter medication rows for clinics that already exist.
+New clinics are lazily seeded when the formulary is first read.
+
 ## Clinical schema sequencing
 
 `0005_clinical_documentation` creates the pregnancy, visit, diagnosis,
@@ -331,8 +381,7 @@ alembic upgrade head
 ```
 
 Clinical records remain clinic-scoped, auditable, and portable to Docker
-Desktop. The separate Labs, Prescriptions, and Billing workflows remain
-outside this module.
+Desktop. The optional Billing workflow remains outside this module.
 
 ## Development documentation
 
