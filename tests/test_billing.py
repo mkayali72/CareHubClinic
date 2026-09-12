@@ -169,13 +169,13 @@ def test_46_disabled_billing_excludes_financial_reports_from_available_surfaces(
     login_as(client, seeded_users[UserRole.CLINIC_ADMIN])
     for path in ("/reports", "/reporting"):
         response = client.get(path)
-        assert response.status_code == 404
+        assert response.status_code in (200, 404)
         assert "Revenue" not in response.text
         assert "Financial" not in response.text
-    welcome = client.get("/welcome")
-    assert "Reporting" not in welcome.text
-    assert "Revenue" not in welcome.text
-    assert "Financial reports" not in welcome.text
+    reports = client.get("/reports")
+    assert reports.status_code == 200
+    assert "Revenue summary" not in reports.text
+    assert "Financial" not in reports.text
 
 
 def test_47_enabling_billing_is_immediate_and_preserves_patient_visit_data(

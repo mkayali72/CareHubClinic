@@ -14,6 +14,7 @@ from app.routes import (
     pages,
     patients,
     prescriptions,
+    reporting,
     scheduling,
 )
 
@@ -49,6 +50,7 @@ def create_app() -> FastAPI:
     application.include_router(clinical.router)
     application.include_router(labs.router)
     application.include_router(prescriptions.router)
+    application.include_router(reporting.router)
     application.include_router(billing.router)
     return application
 

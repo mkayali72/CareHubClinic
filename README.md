@@ -3,8 +3,8 @@
 This repository contains the portable foundation for a web application that
   supports OB/GYN clinic operations. It includes foundational tenancy,
   authentication, auditing, soft-delete infrastructure, the Patient Demographics,
-  Scheduling, Visit Documentation, Lab Orders, Prescriptions, and optional
-  Billing modules.
+  Scheduling, Visit Documentation, Lab Orders, Prescriptions, optional Billing,
+  and RBAC-protected Reporting modules.
 
 ## Stack
 
@@ -30,11 +30,11 @@ app/
   database.py           SQLAlchemy engine, ORM sessions, and soft-delete filter
   main.py               FastAPI application factory and entry point
   models/               Clinic, Patient, User, scheduling, and clinical entities
-  routes/               Health, authentication, patient, scheduling, clinical, billing, and page routers
+  routes/               Health, authentication, patient, scheduling, clinical, billing, reporting, and page routers
   schemas/              Reserved for future request/response schemas
-  services/             Authentication, scheduling, clinical, patient, billing, and audit logic
+  services/             Authentication, scheduling, clinical, patient, billing, reporting, and audit logic
   static/               CSS and future static assets
-  templates/            Login, patient, scheduling, visit, billing, welcome, and shared shell
+  templates/            Login, patient, scheduling, visit, billing, reports, welcome, and shared shell
 alembic/
   env.py                Migration environment wired to DATABASE_URL
   versions/             Foundational, auth-security, patient, scheduling, clinical, lab, prescription, and billing migrations
@@ -401,6 +401,49 @@ and audit history.
 `0009_billing` creates the PostgreSQL invoice-status enum, clinic fee schedule,
 soft-deletable invoices and charges, indexes, and starter prices for existing
 clinics. New clinics are lazily seeded on first enabled fee-schedule access.
+
+## Reporting
+
+The `/reports` workspace lists only reports allowed for the signed-in staff
+role. Scheduling reports are available to physicians, nurse/MAs, front desk, and
+clinic administrators. Clinical reports are available to physicians, nurse/MAs,
+and clinic administrators. Revenue is restricted to billing clerks and clinic
+administrators and is omitted from the report list, route, and exports while
+`billing_module_enabled` is false.
+
+The available reports are:
+
+- **Daily schedule & census** (`/reports/schedule`) — appointments by day,
+  status mix, and unique active census. Cancelled and no-show appointments stay
+  in the schedule status mix but do not count toward active census.
+- **Revenue summary** (`/reports/revenue`) — active invoice count, gross,
+  paid, and unpaid totals using non-deleted charge snapshots. Deleted invoices,
+  charges, visits, and patients are excluded, and Billing's feature gate still
+  applies when reading retained history.
+- **No-show rate** (`/reports/no-show-rate`) — no-shows divided by eligible
+  appointments. Cancelled appointments are excluded from both numerator and
+  denominator; soft-deleted appointments and patients are excluded.
+- **Patients due for screening** (`/reports/screening`) — the latest non-empty
+  Pap and HPV due dates documented by an active visit in the selected range,
+  with dates on or before the range end marked overdue.
+- **Active pregnancies by trimester** (`/reports/pregnancies`) — active,
+  non-deleted pregnancy episodes as of the range end, using corrected EDD when
+  present. First trimester is under 14 weeks, second is 14–27 weeks, and third
+  is 28 weeks or more.
+- **Delivery outcomes log** (`/reports/deliveries`) — one row per delivery
+  outcome whose delivery date is in the selected range, joined only to active
+  pregnancy episodes and patients.
+
+All report date ranges are **inclusive on both boundaries**. Date fields use
+`start_date <= value <= end_date`; appointment timestamps use midnight at the
+start date through, but not including, midnight after the end date. This means
+an appointment at 23:59 on the end date is included. The screening report uses
+the selected visit-date range, while the pregnancy report is an end-date
+snapshot by design.
+
+Each report page offers browser-independent **Export PDF** and **Export Excel**
+downloads. PDF output uses ReportLab and XLSX output uses openpyxl; both
+serializers consume the same tested service result as the HTML view.
 
 ## Clinical schema sequencing
 

@@ -200,3 +200,18 @@ Prompt 9.T Billing suite: PASS — `python -m pytest -q tests/test_billing.py` c
 Migration: PASS — Applied `0009_billing`; Alembic reports `0009_billing (head)`.
 Compilation and diff checks: PASS — `python -m compileall -q app alembic tests` and `git diff --check` completed without errors.
 Full regression suite: PASS — `python -m pytest -q` completed with 119 passed and 3 existing dependency deprecation warnings.
+
+## 2026-09-12 — Reporting
+
+Reporting query, RBAC, date-boundary, soft-delete, clinical calculation, and
+export route tests: PASS — `python -m pytest -q tests/test_reporting.py`
+completed with 5 passed and 2 existing dependency deprecation warnings.
+Full regression suite: PASS — `python -m pytest -q` completed with 124 passed
+and 3 existing dependency deprecation warnings.
+Compilation and diff checks: PASS — `python -m compileall -q app tests alembic`
+and `git diff --check` completed without errors.
+Migration: PASS — Alembic reports `0009_billing (head)`; Reporting requires no
+schema migration.
+Workflow: PASS — Restarted the OB-GYN Clinic App workflow; local `/health`
+returned `{"status":"ok","database":"ok"}`, `/login` returned HTTP 200, and
+anonymous `/reports` returned HTTP 303 to authentication.

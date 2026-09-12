@@ -308,3 +308,51 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
 - [ ] Disable Billing after creating an invoice. Confirm operational routes
       return 404 while the invoice row remains in the database. Re-enable the
       module and confirm the same invoice returns to the ledger unchanged.
+
+## 2026-09-12 — Reporting
+
+Apply all migrations and start the documented FastAPI workflow before testing:
+
+```bash
+alembic upgrade head
+python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+```
+
+Reporting uses inclusive date boundaries. Confirm the selected start date and
+the entire selected end date are included; an appointment at 23:59 on the end
+date must appear. The screening report uses visits inside the selected range,
+and the active-pregnancy report is a snapshot as of the selected end date.
+
+- [ ] Sign in as each role and open `/reports`. Confirm physicians and
+      nurse/MAs see the clinical reports, front desk sees the schedule and
+      no-show reports, and billing clerks see only the revenue report when
+      Billing is enabled. Confirm a billing clerk cannot open clinical report
+      URLs directly and a physician cannot open `/reports/revenue`.
+- [ ] Disable Billing as `clinic_admin`. Confirm **Revenue summary** is absent
+      from `/reports` and a direct request to `/reports/revenue` returns a
+      deliberate unavailable/404 response. Re-enable Billing and confirm the
+      report appears without restarting the app.
+- [ ] Create a hand-counted sample for one two-day range:
+      two active appointments on day one (one done and one no-show), one
+      cancelled appointment, one appointment at 23:59 on the end date, and one
+      soft-deleted appointment. Compare the Daily schedule & census totals and
+      No-show rate to the sample. Confirm cancelled appointments are excluded
+      from the no-show denominator and the deleted appointment is absent.
+- [ ] Create two invoices with known line-item amounts, mark one paid, and
+      create a soft-deleted invoice. Compare Revenue summary gross/paid/unpaid
+      totals to a hand calculation from the active invoice snapshots. Confirm
+      disabling Billing hides the report but does not delete the invoice rows.
+- [ ] Record one Pap due date equal to the report end date and one future HPV
+      due date. Confirm only Pap is reported overdue. Add a newer visit with
+      revised due dates and confirm the latest non-empty in-range values are
+      used; soft-delete the patient and confirm the patient disappears.
+- [ ] Create active pregnancy episodes whose end-date gestational ages are
+      13w6d, 14w0d, 27w6d, and 28w0d. Hand-count the first/second/third
+      trimester cards and confirm the boundary transitions. Record a delivery
+      outcome and confirm it leaves the active-pregnancy snapshot and appears
+      once in the Delivery outcomes log.
+- [ ] On every report detail page, set a start date and end date manually and
+      confirm the page states the inclusive range. Click **Export PDF** and
+      **Export Excel**; open both files and verify the title, date range, and
+      detail rows match the hand-counted HTML report rather than only checking
+      that a download occurred.
