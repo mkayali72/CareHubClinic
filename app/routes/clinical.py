@@ -4,7 +4,6 @@ from datetime import date
 from typing import Any
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.responses import HTMLResponse, RedirectResponse, Response
@@ -47,10 +46,11 @@ from app.services.clinical import (
     update_pregnancy_episode,
     update_visit,
 )
+from app.templates import create_templates
 from app.services.prescriptions import get_current_prescriptions
 
 router = APIRouter(tags=["clinical"])
-templates = Jinja2Templates(directory="app/templates")
+templates = create_templates()
 
 
 def _service_error(error: ValueError | PermissionError) -> None:

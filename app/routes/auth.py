@@ -1,7 +1,6 @@
 """Jinja2 and htmx routes for session-based staff authentication."""
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 
@@ -13,9 +12,10 @@ from app.services.auth import (
     logout_user,
 )
 from app.models import User
+from app.templates import create_templates
 
 router = APIRouter(tags=["authentication"])
-templates = Jinja2Templates(directory="app/templates")
+templates = create_templates()
 
 
 @router.get("/login", response_class=HTMLResponse)

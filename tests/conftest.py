@@ -13,6 +13,7 @@ from app.database import get_db
 from app.main import create_app
 from app.models import Base, Clinic, User, UserRole
 from app.services.auth import create_user
+from app.services.csrf import enforce_csrf
 
 
 @pytest.fixture()
@@ -108,6 +109,7 @@ def client(db_session: Session) -> Iterator[TestClient]:
 
     application = create_app()
     application.dependency_overrides[get_db] = make_database_override(db_session)
+    application.dependency_overrides[enforce_csrf] = lambda: None
     try:
         with TestClient(application) as test_client:
             yield test_client
@@ -140,6 +142,7 @@ def short_lived_client(
     )
     application = create_app()
     application.dependency_overrides[get_db] = make_database_override(db_session)
+    application.dependency_overrides[enforce_csrf] = lambda: None
     try:
         with TestClient(application) as test_client:
             yield test_client

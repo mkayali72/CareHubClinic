@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="csrf-token" content="{{ csrf_token }}" />
     <title>{{ page_title }} · {{ app_name }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
@@ -109,6 +110,19 @@
       </main>
     </div>
      <script>
+       function installCsrfFields(root = document) {
+         const token = document.querySelector('meta[name="csrf-token"]')?.content;
+         if (!token) return;
+         root.querySelectorAll('form[method="post"], form:not([method])').forEach((form) => {
+           if (form.querySelector('input[name="_csrf_token"]')) return;
+           const field = document.createElement("input");
+           field.type = "hidden";
+           field.name = "_csrf_token";
+           field.value = token;
+           form.appendChild(field);
+         });
+       }
+
        function showLicenseBanner(message) {
          let banner = document.getElementById("license-banner");
          if (!banner) {
@@ -128,6 +142,14 @@
            showLicenseBanner(event.detail.xhr.responseText || "License renewal is required before saving changes.");
          }
        });
+       document.body.addEventListener("htmx:configRequest", function (event) {
+         const token = document.querySelector('meta[name="csrf-token"]')?.content;
+         if (token) event.detail.headers["X-CSRF-Token"] = token;
+       });
+       document.body.addEventListener("htmx:afterSwap", function (event) {
+         installCsrfFields(event.detail.target || document);
+       });
+       installCsrfFields();
      </script>
   </body>
 </html>

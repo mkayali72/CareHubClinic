@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.responses import HTMLResponse, RedirectResponse, Response
@@ -30,9 +29,10 @@ from app.services.prescriptions import (
     get_visit_prescriptions,
     update_medication_definition,
 )
+from app.templates import create_templates
 
 router = APIRouter(tags=["prescriptions"])
-templates = Jinja2Templates(directory="app/templates")
+templates = create_templates()
 
 
 def _visit_or_404(db: Session, visit_id: int, user: User) -> Visit:

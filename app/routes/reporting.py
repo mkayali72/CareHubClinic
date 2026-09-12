@@ -4,7 +4,6 @@ from datetime import date, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from starlette.responses import HTMLResponse, Response
 
@@ -20,9 +19,10 @@ from app.services.reporting import (
     export_pdf,
     export_xlsx,
 )
+from app.templates import create_templates
 
 router = APIRouter(tags=["reporting"])
-templates = Jinja2Templates(directory="app/templates")
+templates = create_templates()
 
 
 def _selected_range(

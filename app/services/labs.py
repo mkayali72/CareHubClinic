@@ -16,8 +16,9 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import os
+import re
 from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -39,6 +40,9 @@ from app.services.clinical import CLINICAL_ROLES, ensure_clinical_role
 
 LAB_RESULT_MAX_BYTES = 10 * 1024 * 1024
 LAB_UPLOAD_ROOT = Path(os.getenv("LAB_UPLOAD_DIR", "var/lab_results"))
+STORED_NAME_PATTERN = re.compile(
+    r"^[0-9a-f]{32}(?:\.(?:pdf|png|jpg|jpeg|webp))?$"
+)
 DEFAULT_LAB_TESTS: tuple[tuple[str, str], ...] = (
     ("CBC", "Complete blood count"),
     ("Urinalysis", "Urinalysis with microscopy when indicated"),
@@ -512,15 +516,43 @@ def _store_lab_file(
         os.chmod(LAB_UPLOAD_ROOT, 0o700)
     except OSError:
         pass
-    generated_name = f"{uuid4().hex}{Path(safe_name).suffix.lower()}"
-    target = LAB_UPLOAD_ROOT / generated_name
-    with target.open("xb") as stored:
-        stored.write(content)
+    generated_name = uuid4().hex
+    root_fd = os.open(
+        LAB_UPLOAD_ROOT,
+        os.O_RDONLY | os.O_DIRECTORY,
+    )
     try:
-        os.chmod(target, 0o600)
-    except OSError:
-        pass
+        stored_fd = os.open(
+            generated_name,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+            dir_fd=root_fd,
+        )
+        with os.fdopen(stored_fd, "wb") as stored:
+            stored.write(content)
+    finally:
+        os.close(root_fd)
     return generated_name, validated_type, len(content)
+
+
+def _stored_name_is_safe(stored_name: str) -> bool:
+    """Allow only generated lab names, including legacy names with safe suffixes."""
+
+    return bool(STORED_NAME_PATTERN.fullmatch(stored_name))
+
+
+def _remove_stored_lab_file(stored_name: str) -> None:
+    """Remove a generated file relative to the private directory descriptor."""
+
+    if not _stored_name_is_safe(stored_name):
+        return
+    root_fd = os.open(LAB_UPLOAD_ROOT, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.unlink(stored_name, dir_fd=root_fd)
+    except FileNotFoundError:
+        pass
+    finally:
+        os.close(root_fd)
 
 
 def create_lab_result(
@@ -568,7 +600,7 @@ def create_lab_result(
         db.flush()
     except Exception:
         if stored_name:
-            (LAB_UPLOAD_ROOT / stored_name).unlink(missing_ok=True)
+            _remove_stored_lab_file(stored_name)
         raise
     record_audit_event(
         db,
@@ -639,8 +671,11 @@ def lab_file_path_for_result(result: LabResult) -> Path:
 
     if not result.file_path:
         raise ValueError("This lab result does not have an uploaded file.")
+    if not _stored_name_is_safe(result.file_path):
+        raise ValueError("Invalid stored lab result path.")
+    stored_path = Path(result.file_path)
     root = LAB_UPLOAD_ROOT.resolve()
-    candidate = (root / result.file_path).resolve()
+    candidate = (root / stored_path).resolve()
     try:
         candidate.relative_to(root)
     except ValueError as error:
@@ -648,3 +683,20 @@ def lab_file_path_for_result(result: LabResult) -> Path:
     if not candidate.is_file():
         raise ValueError("The stored lab result file is unavailable.")
     return candidate
+
+
+def open_lab_file_for_result(result: LabResult) -> BinaryIO:
+    """Open a result by generated basename beneath the private root descriptor."""
+
+    if not result.file_path or not _stored_name_is_safe(result.file_path):
+        raise ValueError("Invalid stored lab result path.")
+    root_fd = os.open(LAB_UPLOAD_ROOT, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        file_fd = os.open(
+            result.file_path,
+            os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
+            dir_fd=root_fd,
+        )
+    finally:
+        os.close(root_fd)
+    return os.fdopen(file_fd, "rb")

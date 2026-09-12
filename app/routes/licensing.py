@@ -3,7 +3,6 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 
@@ -17,9 +16,10 @@ from app.services.licensing import (
     get_license_snapshot,
     update_license_configuration,
 )
+from app.templates import create_templates
 
 router = APIRouter(tags=["licensing"])
-templates = Jinja2Templates(directory="app/templates")
+templates = create_templates()
 
 
 def _utc_form_value(value: datetime) -> datetime:

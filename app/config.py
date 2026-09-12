@@ -31,6 +31,7 @@ class Settings:
     port: int
     session_secret: str
     session_max_age_seconds: int
+    session_inactivity_seconds: int
     login_max_failed_attempts: int
     login_lockout_seconds: int
     license_check_interval_seconds: int
@@ -93,9 +94,10 @@ def get_settings() -> Settings:
             raise ValueError(f"{name} must be a positive integer.")
         return value
 
+    app_env = os.getenv("APP_ENV", "development").strip().lower()
     return Settings(
         app_name=os.getenv("APP_NAME", "OB/GYN Clinic"),
-        app_env=os.getenv("APP_ENV", "development"),
+        app_env=app_env,
         database_url=normalize_database_url(database_url),
         host=os.getenv("HOST", "0.0.0.0"),
         port=port,
@@ -104,6 +106,10 @@ def get_settings() -> Settings:
             "development-only-change-this-session-secret",
         ),
         session_max_age_seconds=positive_int("SESSION_MAX_AGE_SECONDS", "1209600"),
+        session_inactivity_seconds=positive_int(
+            "SESSION_INACTIVITY_SECONDS",
+            "1800",
+        ),
         login_max_failed_attempts=positive_int("LOGIN_MAX_FAILED_ATTEMPTS", "5"),
         login_lockout_seconds=positive_int("LOGIN_LOCKOUT_SECONDS", "900"),
         license_check_interval_seconds=positive_int(

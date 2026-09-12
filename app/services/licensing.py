@@ -316,7 +316,7 @@ def run_scheduled_license_check() -> int:
         return refresh_license_statuses(db)
     except Exception:
         db.rollback()
-        logger.exception("Scheduled license check failed")
+        logger.error("Scheduled license check failed")
         return 0
     finally:
         db.close()

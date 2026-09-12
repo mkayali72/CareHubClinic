@@ -2,12 +2,14 @@
 
 import asyncio
 from contextlib import asynccontextmanager
+import html
+import logging
 
 from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
 from starlette.middleware.sessions import SessionMiddleware
-from starlette.responses import Response
+from starlette.responses import HTMLResponse, JSONResponse, Response
 
 from app.config import settings
 from app.services.licensing import (
@@ -16,6 +18,7 @@ from app.services.licensing import (
     enforce_license_for_request,
     run_scheduled_license_check,
 )
+from app.services.csrf import CSRFViolation, csrf_error_response, enforce_csrf
 from app.routes import (
     auth,
     billing,
@@ -29,6 +32,8 @@ from app.routes import (
     scheduling,
     licensing,
 )
+
+logger = logging.getLogger(__name__)
 
 
 async def _license_scheduler() -> None:
@@ -67,8 +72,17 @@ def create_app() -> FastAPI:
         description="Portable starter application for OB/GYN clinic operations.",
         version="0.1.0",
         lifespan=app_lifespan,
-        dependencies=[Depends(enforce_license_for_request)],
+        debug=settings.app_env != "production",
+        dependencies=[
+            Depends(enforce_csrf),
+            Depends(enforce_license_for_request),
+        ],
     )
+    application.add_exception_handler(
+        CSRFViolation,
+        lambda request, exc: csrf_error_response(request),
+    )
+    application.add_exception_handler(Exception, _unhandled_exception_response)
     application.add_exception_handler(
         LicenseWriteBlocked,
         lambda request, exc: _blocked_response(request, exc.snapshot),
@@ -93,6 +107,38 @@ def create_app() -> FastAPI:
     application.include_router(billing.router)
     application.include_router(licensing.router)
     return application
+
+
+async def _unhandled_exception_response(
+    request: Request,
+    exc: Exception,
+) -> Response:
+    """Log only a generic event and avoid internal details in production."""
+
+    logger.error("Unhandled application error")
+    if settings.app_env != "production":
+        detail = html.escape(str(exc)) or "Unhandled application error."
+        if "application/json" in request.headers.get("accept", ""):
+            return JSONResponse(
+                status_code=500,
+                content={"detail": str(exc) or "Unhandled application error."},
+            )
+        return HTMLResponse(
+            content=f"<!doctype html><title>Application error</title><p>{detail}</p>",
+            status_code=500,
+        )
+    if "application/json" in request.headers.get("accept", ""):
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error."},
+        )
+    return HTMLResponse(
+        content=(
+            "<!doctype html><title>Application error</title>"
+            "<p>Something went wrong. Please try again later.</p>"
+        ),
+        status_code=500,
+    )
 
 
 app = create_app()

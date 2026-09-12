@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
+import time
 from typing import Any
 
 from fastapi import Depends, HTTPException, Request
@@ -177,6 +178,7 @@ def login_user(request: Request, user: User) -> None:
     request.session["user_id"] = user.id
     request.session["session_version"] = user.session_version
     request.session["role"] = user.role.value if user.role else None
+    request.session["last_activity_at"] = time.time()
 
 
 def logout_user(request: Request, db: Session) -> None:
@@ -223,6 +225,14 @@ def get_current_user(
     if not isinstance(user_id, int):
         return None
 
+    last_activity_at = request.session.get("last_activity_at")
+    if (
+        not isinstance(last_activity_at, (int, float))
+        or time.time() - last_activity_at > settings.session_inactivity_seconds
+    ):
+        request.session.clear()
+        return None
+
     user = db.scalar(select(User).where(User.id == user_id))
     session_version: Any = request.session.get("session_version")
     if (
@@ -233,6 +243,7 @@ def get_current_user(
     ):
         request.session.clear()
         return None
+    request.session["last_activity_at"] = time.time()
     return user
 
 

@@ -398,3 +398,72 @@ license-server check-in. Use `/admin/license` as a `clinic_admin` to set
 - [ ] Leave the app running for one scheduler interval or temporarily lower
       `LICENSE_CHECK_INTERVAL_SECONDS`; confirm `last_check_in_at` and the
       derived status update without a separate worker container.
+
+## Security hardening
+
+Apply the documented environment settings and start the FastAPI workflow before
+testing. Use `APP_ENV=production` for the production-response checks.
+
+### SQL injection and XSS
+
+- [ ] Submit SQL-like values such as `' OR 1=1 --` through patient, scheduling,
+      lab, prescription, billing, and report inputs. Confirm values are treated
+      as data, no extra records are returned, and no database error reveals SQL.
+- [ ] Submit `<script>alert(1)</script>` and an HTML attribute payload in patient
+      names, lab text, appointment names, and report-visible fields. Confirm
+      rendered pages show escaped text and do not execute markup.
+- [ ] Confirm the application source contains no unsafe `|safe` template filter
+      and that the only raw SQL is the constant `SELECT 1` health probe.
+- [ ] Attempt to retrieve a lab result whose stored path contains `../` or an
+      absolute path. Confirm the request returns a safe not-found/error response
+      and cannot read outside the private upload directory.
+
+### CSRF
+
+- [ ] Open `/login`, remove the generated `_csrf_token`, and submit. Confirm
+      HTTP 403 with a refresh message.
+- [ ] Log in normally and submit a patient, appointment, visit, lab,
+      prescription, billing, license, and logout form. Confirm each succeeds
+      only with the current session token.
+- [ ] Replay a token from a different browser/session or send a changed token.
+      Confirm HTTP 403.
+- [ ] Submit an HTMX write without the token. Confirm HTTP 403 and
+      `HX-Reswap: none`; the existing form must not be replaced.
+
+### Login lockout and session timeout
+
+- [ ] Submit five incorrect passwords for one account. Confirm subsequent
+      correct-password attempts remain rejected until the configured
+      `LOGIN_LOCKOUT_SECONDS` period ends.
+- [ ] Confirm the response does not reveal whether the email exists or whether
+      the account is locked.
+- [ ] Leave an authenticated session idle longer than
+      `SESSION_INACTIVITY_SECONDS`. Confirm the next request redirects to
+      `/login`, even though the cookie's maximum lifetime has not elapsed.
+- [ ] Confirm logout invalidates the previous session cookie.
+
+### Production error handling and logging
+
+- [ ] Trigger a controlled unexpected application error with `APP_ENV=production`.
+      Confirm the client receives only a generic error and no traceback,
+      database URL, password, token, filesystem path, or exception message.
+- [ ] Repeat in development mode and confirm debug detail is available only
+      locally.
+- [ ] Review application logs while submitting PHI-like names, clinical notes,
+      passwords, invalid uploads, and malformed requests. Confirm names,
+      medical details, passwords, session tokens, and credentials do not appear.
+- [ ] Confirm scheduled background-task failures log only generic operational
+      messages.
+
+### URL and hosting boundary checks
+
+- [ ] Inspect generated patient, visit, lab, prescription, and billing links.
+      Confirm they contain identifiers and non-PHI filters only; patient names,
+      allergies, medications, and clinical notes must not appear in URLs.
+- [ ] Confirm production cookies include `Secure`, `HttpOnly`, and
+      `SameSite=Lax`.
+- [ ] Before go-live, verify the hosting provider offers a BAA covering every
+      service that handles ePHI. Confirm encrypted volumes and backups, TLS,
+      secret management, key rotation, least-privilege access, MFA for
+      infrastructure operators, monitoring, retention, incident response, and
+      disaster recovery are configured outside this application.

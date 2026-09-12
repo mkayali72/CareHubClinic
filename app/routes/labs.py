@@ -5,10 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
-from starlette.responses import FileResponse, HTMLResponse, RedirectResponse, Response
+from starlette.background import BackgroundTask
+from starlette.responses import HTMLResponse, RedirectResponse, Response, StreamingResponse
 
 from app.database import get_db
 from app.models import (
@@ -32,15 +32,16 @@ from app.services.labs import (
     get_lab_test_definitions,
     get_pending_lab_orders,
     get_visit_lab_orders,
-    lab_file_path_for_result,
+    open_lab_file_for_result,
     order_lab_tests,
     review_lab_result,
     update_lab_order_set,
     update_lab_test_definition,
 )
+from app.templates import create_templates
 
 router = APIRouter(tags=["labs"])
-templates = Jinja2Templates(directory="app/templates")
+templates = create_templates()
 
 
 def _error(error: ValueError | PermissionError) -> None:
@@ -286,14 +287,17 @@ def lab_result_file(
 
     try:
         result = get_lab_result_for_user(db, result_id, current_user)
-        path = lab_file_path_for_result(result)
+        file_handle = open_lab_file_for_result(result)
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
-    return FileResponse(
-        path,
+    return StreamingResponse(
+        iter(lambda: file_handle.read(1024 * 1024), b""),
         media_type=result.content_type or "application/octet-stream",
-        filename=result.original_filename or "lab-result",
-        headers={"X-Content-Type-Options": "nosniff"},
+        headers={
+            "Content-Disposition": 'attachment; filename="lab-result"',
+            "X-Content-Type-Options": "nosniff",
+        },
+        background=BackgroundTask(file_handle.close),
     )
 
 

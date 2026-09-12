@@ -1,7 +1,6 @@
 """Server-rendered page routes for the initial application shell."""
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.templating import Jinja2Templates
 from starlette.responses import RedirectResponse, Response
 
 from app.config import settings
@@ -9,11 +8,12 @@ from app.database import get_db
 from app.models import User, UserRole
 from app.services.auth import get_current_user, require_authenticated_user
 from app.services.scheduling import get_appointments_for_date
+from app.templates import create_templates
 from sqlalchemy.orm import Session
 from datetime import date
 
 router = APIRouter(tags=["pages"])
-templates = Jinja2Templates(directory="app/templates")
+templates = create_templates()
 
 
 @router.get("/")

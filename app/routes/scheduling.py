@@ -4,7 +4,6 @@ from datetime import date, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
-from fastapi.templating import Jinja2Templates
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -32,9 +31,10 @@ from app.services.scheduling import (
     update_appointment,
     update_appointment_type,
 )
+from app.templates import create_templates
 
 router = APIRouter(tags=["scheduling"])
-templates = Jinja2Templates(directory="app/templates")
+templates = create_templates()
 
 
 def parse_selected_date(value: str | None) -> date:

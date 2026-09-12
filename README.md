@@ -159,6 +159,10 @@ authentication dependency and displays the signed-in user's name and role.
 `/logout` clears the session. The reusable `require_roles(...)` dependency is
 available for every future route that needs role-based access control.
 
+Security controls, deployment limitations, and HIPAA BAA hosting requirements
+are documented in [`SECURITY.md`](SECURITY.md). Manual security verification
+steps are in `TESTING.md`.
+
 ## Licensing
 
 Licensing is enforced server-side on every request, not only during login. The

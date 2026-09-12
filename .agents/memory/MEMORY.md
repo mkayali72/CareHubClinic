@@ -3,3 +3,4 @@
 - [PostgreSQL enum migrations](postgresql-enum-migrations.md) — manually-created PostgreSQL enums must disable SQLAlchemy's implicit table-create step.
 - [Report export dependencies](report-export-dependencies.md) — use the writable project Python target when the immutable system environment rejects package installs.
 - [Licensing enforcement](licensing-enforcement.md) — evaluate license state per request; keep renewal recovery and the future remote check-in seam isolated.
+- [Lab upload security](lab-upload-security.md) — use generated basenames and directory-descriptor operations for private clinical files.

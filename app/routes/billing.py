@@ -6,7 +6,6 @@ from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.responses import HTMLResponse, RedirectResponse, Response
@@ -34,9 +33,10 @@ from app.services.billing import (
     set_invoice_status,
     update_fee_schedule_item,
 )
+from app.templates import create_templates
 
 router = APIRouter(tags=["billing"])
-templates = Jinja2Templates(directory="app/templates")
+templates = create_templates()
 
 
 def _billing_gate(
