@@ -2,6 +2,7 @@
 
 from datetime import date, datetime, time
 from decimal import Decimal
+from io import BytesIO
 
 from fastapi.testclient import TestClient
 from openpyxl import load_workbook
@@ -32,6 +33,7 @@ from app.services.reporting import (
     daily_schedule_census,
     delivery_outcomes_log,
     export_pdf,
+    export_rows,
     export_xlsx,
     no_show_rate,
     patients_due_for_screening,
@@ -364,3 +366,303 @@ def test_pdf_and_excel_exports_are_real_downloads(
     pdf_response = export_pdf(report)
     assert pdf_response.body.startswith(b"%PDF-")
     assert pdf_response.headers["content-disposition"].endswith('"screening.pdf"')
+
+
+def test_92_known_dataset_returns_exact_values_for_every_report(
+    seeded_users: dict[UserRole, User],
+    db_session: Session,
+) -> None:
+    """Test 92: every report is checked against a hand-counted dataset."""
+
+    admin = seeded_users[UserRole.CLINIC_ADMIN]
+    enable_billing(db_session, admin)
+    patients = [
+        make_patient(db_session, admin, "Known Appointment Patient 1"),
+        make_patient(db_session, admin, "Known Appointment Patient 2"),
+        make_patient(db_session, admin, "Known Appointment Patient 3"),
+    ]
+    appointment_type = AppointmentType(
+        clinic_id=admin.clinic_id,
+        name="Known report appointment",
+        default_duration_minutes=30,
+    )
+    db_session.add(appointment_type)
+    db_session.flush()
+    statuses = (
+        AppointmentStatus.NO_SHOW,
+        AppointmentStatus.NO_SHOW,
+        AppointmentStatus.DONE,
+    )
+    for index, (patient, status) in enumerate(zip(patients, statuses)):
+        make_appointment(
+            db_session,
+            admin,
+            patient,
+            appointment_type,
+            datetime.combine(REPORT_END, time(9 + index)),
+            status,
+        )
+    screening_visit = make_visit(
+        db_session,
+        admin,
+        patients[0],
+        REPORT_END,
+        gyn_data={
+            "pap_due_date": REPORT_END.isoformat(),
+            "hpv_due_date": "2026-12-01",
+        },
+    )
+    fee = ensure_default_fee_schedule(db_session, admin.clinic_id)[0]
+    db_session.commit()
+    invoice = create_invoice(db_session, admin, screening_visit.id, [fee.id])
+    invoice.created_at = datetime.combine(REPORT_END, time(23, 59))
+    delivery_episode = create_pregnancy_episode(
+        db_session,
+        admin,
+        patients[1].id,
+        lmp=date(2025, 12, 1),
+        edd=date(2026, 9, 7),
+    )
+    create_delivery_outcome(
+        db_session,
+        delivery_episode,
+        admin,
+        REPORT_END,
+        "vaginal",
+        "None",
+        3200,
+        8,
+        9,
+    )
+    create_pregnancy_episode(
+        db_session,
+        admin,
+        patients[2].id,
+        lmp=date(2026, 6, 1),
+        edd=date(2027, 3, 8),
+    )
+    db_session.commit()
+
+    schedule = daily_schedule_census(db_session, admin, REPORT_START, REPORT_END)
+    revenue = revenue_summary(db_session, admin, REPORT_START, REPORT_END)
+    no_show = no_show_rate(db_session, admin, REPORT_START, REPORT_END)
+    screening = patients_due_for_screening(db_session, admin, REPORT_START, REPORT_END)
+    pregnancies = active_pregnancies_by_trimester(
+        db_session,
+        admin,
+        REPORT_START,
+        REPORT_END,
+    )
+    deliveries = delivery_outcomes_log(db_session, admin, REPORT_START, REPORT_END)
+
+    assert schedule["total_appointments"] == 3
+    assert schedule["days"][0]["total_appointments"] == 3
+    assert schedule["days"][0]["active_census"] == 1
+    assert schedule["days"][0]["status_counts"] == {
+        "scheduled": 0,
+        "checked_in": 0,
+        "in_room": 0,
+        "with_doctor": 0,
+        "done": 1,
+        "cancelled": 0,
+        "no_show": 2,
+    }
+    assert revenue["invoice_count"] == 1
+    assert revenue["gross_total"] == Decimal("150.00")
+    assert revenue["paid_total"] == Decimal("0.00")
+    assert revenue["unpaid_total"] == Decimal("150.00")
+    assert no_show["eligible_count"] == 3
+    assert no_show["no_show_count"] == 2
+    assert no_show["rate_percent"] == Decimal("66.67")
+    assert screening["patient_count"] == 1
+    assert screening["rows"][0]["patient"] == "Known Appointment Patient 1"
+    assert screening["rows"][0]["overdue"] == "Pap"
+    assert pregnancies["total"] == 1
+    assert pregnancies["counts"] == {"first": 0, "second": 1, "third": 0}
+    assert pregnancies["rows"][0]["patient"] == "Known Appointment Patient 3"
+    assert deliveries["count"] == 1
+    assert deliveries["rows"][0]["patient"] == "Known Appointment Patient 2"
+    assert deliveries["rows"][0]["mode"] == "vaginal"
+
+
+def test_93_date_filter_includes_both_boundaries_and_excludes_neighbors(
+    seeded_users: dict[UserRole, User],
+    db_session: Session,
+) -> None:
+    """Test 93: inclusive date boundaries are asserted with adjacent records."""
+
+    admin = seeded_users[UserRole.CLINIC_ADMIN]
+    patient = make_patient(db_session, admin, "Boundary Patient")
+    appointment_type = AppointmentType(
+        clinic_id=admin.clinic_id,
+        name="Boundary appointment",
+        default_duration_minutes=30,
+    )
+    db_session.add(appointment_type)
+    db_session.flush()
+    inside_start = make_appointment(
+        db_session,
+        admin,
+        patient,
+        appointment_type,
+        datetime.combine(REPORT_START, time.min),
+        AppointmentStatus.NO_SHOW,
+    )
+    inside_end = make_appointment(
+        db_session,
+        admin,
+        patient,
+        appointment_type,
+        datetime.combine(REPORT_END, time(23, 59, 59)),
+        AppointmentStatus.NO_SHOW,
+    )
+    outside_before = make_appointment(
+        db_session,
+        admin,
+        patient,
+        appointment_type,
+        datetime.combine(REPORT_START, time.min) - __import__("datetime").timedelta(seconds=1),
+        AppointmentStatus.DONE,
+    )
+    outside_after = make_appointment(
+        db_session,
+        admin,
+        patient,
+        appointment_type,
+        datetime.combine(REPORT_END, time.min) + __import__("datetime").timedelta(days=1),
+        AppointmentStatus.DONE,
+    )
+    db_session.commit()
+
+    schedule = daily_schedule_census(db_session, admin, REPORT_START, REPORT_END)
+    no_show = no_show_rate(db_session, admin, REPORT_START, REPORT_END)
+    assert {row["id"] for row in schedule["days"][0]["rows"]} == {
+        inside_start.id,
+        inside_end.id,
+    }
+    assert outside_before.id not in {
+        row["id"] for row in schedule["days"][0]["rows"]
+    }
+    assert outside_after.id not in {
+        row["id"] for row in schedule["days"][0]["rows"]
+    }
+    assert no_show["total_appointments"] == 2
+    assert no_show["no_show_count"] == 2
+    assert no_show["rate_percent"] == Decimal("100.00")
+
+
+def test_94_pdf_and_excel_data_match_the_same_report_rows(
+    seeded_users: dict[UserRole, User],
+    db_session: Session,
+) -> None:
+    """Test 94: parsed Excel and PDF bytes contain the displayed report data."""
+
+    admin = seeded_users[UserRole.CLINIC_ADMIN]
+    patient = make_patient(db_session, admin, "Export Match Patient")
+    appointment_type = AppointmentType(
+        clinic_id=admin.clinic_id,
+        name="Export match appointment",
+        default_duration_minutes=30,
+    )
+    db_session.add(appointment_type)
+    db_session.flush()
+    make_appointment(
+        db_session,
+        admin,
+        patient,
+        appointment_type,
+        datetime.combine(REPORT_END, time(23, 59)),
+        AppointmentStatus.NO_SHOW,
+    )
+    db_session.commit()
+    report = daily_schedule_census(db_session, admin, REPORT_START, REPORT_END)
+    columns, expected_rows = export_rows(report)
+
+    excel = export_xlsx(report)
+    workbook = load_workbook(filename=BytesIO(excel.body), data_only=True)
+    worksheet = workbook.active
+    assert list(next(worksheet.iter_rows(min_row=4, max_row=4, values_only=True))) == columns
+    parsed_rows = [
+        list(row)
+        for row in worksheet.iter_rows(min_row=5, values_only=True)
+    ]
+    assert parsed_rows == expected_rows
+
+    pdf = export_pdf(report)
+    pdf_text = pdf.body.decode("latin-1")
+    assert report["title"] in pdf_text
+    assert patient.name in pdf_text
+    assert "23:59" in pdf_text
+    assert "no_show" in pdf_text
+
+
+def test_95_front_desk_cannot_read_financial_report_data_directly(
+    client: TestClient,
+    seeded_users: dict[UserRole, User],
+    db_session: Session,
+) -> None:
+    """Test 95: direct financial report and export calls enforce RBAC."""
+
+    admin = seeded_users[UserRole.CLINIC_ADMIN]
+    enable_billing(db_session, admin)
+    login_as(client, seeded_users[UserRole.FRONT_DESK])
+    report_response = client.get(
+        "/reports/revenue?start_date=2026-09-12&end_date=2026-09-12"
+    )
+    export_response = client.get(
+        "/reports/revenue/export/xlsx?start_date=2026-09-12&end_date=2026-09-12"
+    )
+    assert report_response.status_code == 403
+    assert export_response.status_code == 403
+
+
+def test_96_soft_deleted_appointment_is_removed_from_report_counts(
+    seeded_users: dict[UserRole, User],
+    db_session: Session,
+) -> None:
+    """Test 96: soft deletion removes a counted appointment without hard delete."""
+
+    admin = seeded_users[UserRole.CLINIC_ADMIN]
+    patient = make_patient(db_session, admin, "Soft Delete Report Patient")
+    appointment_type = AppointmentType(
+        clinic_id=admin.clinic_id,
+        name="Soft delete report appointment",
+        default_duration_minutes=30,
+    )
+    db_session.add(appointment_type)
+    db_session.flush()
+    retained = make_appointment(
+        db_session,
+        admin,
+        patient,
+        appointment_type,
+        datetime.combine(REPORT_END, time(9)),
+        AppointmentStatus.DONE,
+    )
+    removed = make_appointment(
+        db_session,
+        admin,
+        patient,
+        appointment_type,
+        datetime.combine(REPORT_END, time(10)),
+        AppointmentStatus.DONE,
+    )
+    db_session.commit()
+    assert daily_schedule_census(
+        db_session,
+        admin,
+        REPORT_START,
+        REPORT_END,
+    )["total_appointments"] == 2
+
+    removed.soft_delete(admin.id)
+    db_session.commit()
+    report = daily_schedule_census(
+        db_session,
+        admin,
+        REPORT_START,
+        REPORT_END,
+    )
+    assert report["total_appointments"] == 1
+    assert report["days"][0]["rows"][0]["id"] == retained.id
+    assert db_session.get(Appointment, removed.id).deleted_at is not None
