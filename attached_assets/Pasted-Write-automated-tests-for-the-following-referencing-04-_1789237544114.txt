@@ -1,0 +1,38 @@
+Write automated tests for the following, referencing 04-qa-test-plan.md, and
+explicitly mark in TESTING.md anything that can't be meaningfully tested until
+real production infrastructure exists:
+
+- Test 34: NOT automatable in Replit — add a TESTING.md note that database
+  encryption at rest must be verified at the infrastructure/hosting level once
+  real hosting is chosen, and is out of scope for application-level automated
+  tests.
+- Test 35: confirm the app redirects or rejects plain-HTTP requests rather than
+  serving content unencrypted (test this if our environment allows it; otherwise
+  document the intended production config in TESTING.md).
+- Test 36: trigger a few different error conditions and assert the resulting
+  logs/responses never contain passwords, session tokens, or PHI.
+- Test 37: assert PHI never appears in any generated URL/query string across the
+  routes built so far.
+- Test 38: force a 500-level error in a production-config test run and assert the
+  response body contains no stack trace or internal file paths.
+- Test 39 (retest): re-confirm file-upload validation still holds after this
+  hardening pass.
+- Test 40 (retest): re-run injection/XSS payload tests across ALL text fields
+  built so far, not just the lab-related ones from Prompt 7 — this is the
+  comprehensive pass.
+- Test 41: attempt a state-changing request without a valid CSRF token and
+  confirm it's rejected.
+- Test 42: attempt N+1 rapid failed logins and confirm rate limiting/lockout
+  engages.
+- Test 43/44: NOT automatable — add TESTING.md notes that BAA-covered hosting and
+  "test environments never contain real PHI" are organizational/process
+  requirements to verify at deployment and data-handling time, not code-level
+  tests.
+
+Also re-run Prompt 3.T through 11.T in full to confirm the hardening pass didn't
+break existing functionality (e.g. CSRF protection breaking a previously-working
+form submission). Fix any failures. Record every test's outcome in
+TEST_RESULTS.md under a "Prompt 12.T — Security Hardening" heading, one
+PASS/FAIL/MANUAL line per test number — remember several of these (34, 43, 44) are
+MANUAL/deferred-to-deployment by design, not failures, so label them accordingly
+rather than marking them FAIL.
