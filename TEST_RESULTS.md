@@ -184,14 +184,19 @@ Prompt 6.T regression: PASS — `python -m pytest -q tests/test_clinical.py` com
 Prompt 7.T regression: PASS — `python -m pytest -q tests/test_labs.py` completed with 15 passed and 2 existing dependency deprecation warnings.
 Combined Prompt 3.T–7.T plus Prompt 8.T regression: PASS — `python -m pytest -q tests/test_foundation.py tests/test_patients.py tests/test_scheduling.py tests/test_clinical.py tests/test_labs.py tests/test_prescriptions.py` completed with 108 passed and 3 existing dependency deprecation warnings.
 
-## 2026-09-12 — Optional Billing
+## Prompt 9.T — Billing Module Toggle
 
-Test 88: PASS — Confirmed disabled operational Billing routes return HTTP 404 with the graceful “Billing is not available” state while the clinic-admin feature-settings route remains accessible and can re-enable the module.
-Test 89: PASS — Confirmed only billing_clerk and clinic_admin can operate Billing, clinic_admin can create/edit fee schedule items, and non-admin fee editing is denied.
-Test 90: PASS — Created visit-linked invoices and charges, confirmed fee price snapshots survive later fee edits, audited paid/unpaid transitions, rendered patient charge-entry controls, and verified branded print content.
-Test 91: PASS — Disabled Billing after invoice creation, confirmed operational routes return 404 without deleting the invoice, then re-enabled the module and confirmed the same invoice returns to the ledger.
+Test 45: PASS — With Billing disabled, every operational Billing route returned HTTP 404 with the disabled response, while the Billing sidebar link and patient-chart Billing tab were absent.
+Test 46: PASS — With Billing disabled, no Reporting or financial-report surface was exposed; the current application has no Reporting section or available report list.
+Test 47: PASS — Toggling `billing_module_enabled` on took effect immediately without restart, and existing patient and visit records remained unchanged.
+Test 48: PASS — Invoice and charge history remained in the database after Billing was toggled off and became available again unchanged after re-enabling.
+Test 49: PASS — A `billing_clerk` received a graceful “Billing is not available” HTTP 404 response from disabled Billing screens instead of a blank page or server error.
+Test 88: PASS — With Billing enabled, a visit-linked charge used the selected clinic fee schedule amount and retained the correct fee reference.
+Test 89: PASS — Marking an invoice paid persisted the state and displayed `paid` in the Billing ledger.
+Test 90: PASS — The printed invoice contained clinic branding, invoice number, patient/visit context, fee itemization, amount, and payment status.
+Test 91: PASS — Editing a fee schedule item after invoice creation changed future pricing without changing the existing invoice or charge amount.
+Prompt 3.T–8.T regression: PASS — `python -m pytest -q tests/test_foundation.py tests/test_patients.py tests/test_scheduling.py tests/test_clinical.py tests/test_labs.py tests/test_prescriptions.py` completed with 108 passed and 3 existing dependency deprecation warnings.
+Prompt 9.T Billing suite: PASS — `python -m pytest -q tests/test_billing.py` completed with 11 passed and 2 existing dependency deprecation warnings.
 Migration: PASS — Applied `0009_billing`; Alembic reports `0009_billing (head)`.
-Billing suite: PASS — `python -m pytest -q tests/test_billing.py` completed with 4 passed and 2 existing dependency deprecation warnings.
-Full regression suite: PASS — `python -m pytest -q` completed with 112 passed and 3 existing dependency deprecation warnings.
 Compilation and diff checks: PASS — `python -m compileall -q app alembic tests` and `git diff --check` completed without errors.
-Workflow: PASS — Restarted the OB-GYN Clinic App workflow; local `/health` returned `{"status":"ok","database":"ok"}`, `/login` returned HTTP 200, and workflow logs showed clean Uvicorn startup.
+Full regression suite: PASS — `python -m pytest -q` completed with 119 passed and 3 existing dependency deprecation warnings.

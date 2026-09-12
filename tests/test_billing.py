@@ -84,24 +84,110 @@ def enable_billing(db: Session, user: User) -> None:
     db.commit()
 
 
-def test_disabled_billing_returns_not_found_but_feature_settings_remain_accessible(
+def enabled_invoice_context(
+    db: Session,
+    clinic_admin: User,
+) -> tuple[Patient, Visit, FeeScheduleItem, Invoice]:
+    """Create one enabled clinic invoice for focused Prompt 9.T checks."""
+
+    enable_billing(db, clinic_admin)
+    patient, visit = seed_patient_and_visit(db, clinic_admin)
+    fee = ensure_default_fee_schedule(db, clinic_admin.clinic_id)[0]
+    db.commit()
+    invoice = create_invoice(db, clinic_admin, visit.id, [fee.id])
+    db.commit()
+    return patient, visit, fee, invoice
+
+
+def test_45_disabled_billing_blocks_all_operational_routes_and_hides_ui(
+    client: TestClient,
+    seeded_users: dict[UserRole, User],
+    db_session: Session,
+) -> None:
+    """Disabled Billing is blocked at every route boundary and in the UI."""
+
+    clinic_admin = seeded_users[UserRole.CLINIC_ADMIN]
+    patient, visit = seed_patient_and_visit(db_session, clinic_admin)
+    login_as(client, clinic_admin)
+
+    requests = (
+        ("get", "/billing", {}),
+        ("get", f"/visits/{visit.id}/billing/charge-panel", {}),
+        (
+            "post",
+            f"/visits/{visit.id}/billing/invoices",
+            {"fee_schedule_item_id": "999", "notes": ""},
+        ),
+        ("post", "/billing/invoices/999/status", {"status": "paid"}),
+        ("get", "/billing/invoices/999/print", {}),
+        ("get", "/admin/billing", {}),
+        (
+            "post",
+            "/admin/billing/fees",
+            {"name": "Blocked fee", "description": "", "unit_price": "10.00"},
+        ),
+        (
+            "post",
+            "/admin/billing/fees/999",
+            {
+                "name": "Blocked fee",
+                "description": "",
+                "unit_price": "10.00",
+                "active": "true",
+            },
+        ),
+    )
+    for method, path, data in requests:
+        response = (
+            client.get(path)
+            if method == "get"
+            else client.post(path, data=data)
+        )
+        assert response.status_code == 404, (method, path, response.text)
+        assert "Billing is not available" in response.text
+
+    patient_list = client.get("/patients")
+    patient_chart = client.get(f"/patients/{patient.id}")
+    assert patient_list.status_code == 200
+    assert patient_chart.status_code == 200
+    assert 'href="/billing"' not in patient_list.text
+    assert ">Billing<" not in patient_list.text
+    assert ">Billing<" not in patient_chart.text
+
+
+def test_46_disabled_billing_excludes_financial_reports_from_available_surfaces(
     client: TestClient,
     seeded_users: dict[UserRole, User],
 ) -> None:
-    """A disabled clerk route is a graceful 404, while admin can re-enable it."""
+    """No Reporting surface or financial report names are exposed when off.
 
-    billing_clerk = seeded_users[UserRole.BILLING_CLERK]
+    The current application has not introduced a Reporting section yet. This
+    guards the existing contract so a future report list cannot accidentally
+    expose revenue/financial options while Billing is disabled.
+    """
+
+    login_as(client, seeded_users[UserRole.CLINIC_ADMIN])
+    for path in ("/reports", "/reporting"):
+        response = client.get(path)
+        assert response.status_code == 404
+        assert "Revenue" not in response.text
+        assert "Financial" not in response.text
+    welcome = client.get("/welcome")
+    assert "Reporting" not in welcome.text
+    assert "Revenue" not in welcome.text
+    assert "Financial reports" not in welcome.text
+
+
+def test_47_enabling_billing_is_immediate_and_preserves_patient_visit_data(
+    client: TestClient,
+    seeded_users: dict[UserRole, User],
+    db_session: Session,
+) -> None:
+    """The feature toggle takes effect without restart or data loss."""
+
     clinic_admin = seeded_users[UserRole.CLINIC_ADMIN]
-
-    login_as(client, billing_clerk)
-    response = client.get("/billing")
-    assert response.status_code == 404
-    assert "Billing is not available" in response.text
-
+    patient, visit = seed_patient_and_visit(db_session, clinic_admin)
     login_as(client, clinic_admin)
-    settings_response = client.get("/admin/clinic-features")
-    assert settings_response.status_code == 200
-    assert "Billing module" in settings_response.text
     toggle_response = client.post(
         "/admin/clinic-features/billing",
         data={"enabled": "true"},
@@ -109,7 +195,35 @@ def test_disabled_billing_returns_not_found_but_feature_settings_remain_accessib
     )
     assert toggle_response.status_code == 303
     assert client.get("/billing").status_code == 200
+    assert ">Billing<" in client.get(f"/patients/{patient.id}").text
 
+    retained_patient = db_session.scalar(select(Patient).where(Patient.id == patient.id))
+    retained_visit = db_session.scalar(select(Visit).where(Visit.id == visit.id))
+    assert retained_patient is not None
+    assert retained_patient.name == "Billing Patient"
+    assert retained_visit is not None
+    assert retained_visit.patient_id == patient.id
+
+
+def test_49_billing_clerk_gets_graceful_disabled_response(
+    client: TestClient,
+    seeded_users: dict[UserRole, User],
+    db_session: Session,
+) -> None:
+    """A disabled billing clerk screen is a useful 404, not a blank error."""
+
+    _, visit = seed_patient_and_visit(
+        db_session,
+        seeded_users[UserRole.CLINIC_ADMIN],
+    )
+    login_as(client, seeded_users[UserRole.BILLING_CLERK])
+    for path in (
+        "/billing",
+        f"/visits/{visit.id}/billing/charge-panel",
+    ):
+        response = client.get(path)
+        assert response.status_code == 404
+        assert "Billing is not available" in response.text
 
 def test_billing_permissions_and_fee_schedule_editor(
     client: TestClient,
@@ -146,6 +260,103 @@ def test_billing_permissions_and_fee_schedule_editor(
     login_as(client, seeded_users[UserRole.BILLING_CLERK])
     assert client.get("/admin/billing").status_code == 403
     assert client.get("/billing").status_code == 200
+
+
+def test_88_enabled_charge_uses_the_clinic_fee_schedule_amount(
+    seeded_users: dict[UserRole, User],
+    db_session: Session,
+) -> None:
+    """Test 88: a visit charge uses the selected fee schedule amount."""
+
+    _, visit, fee, invoice = enabled_invoice_context(
+        db_session,
+        seeded_users[UserRole.CLINIC_ADMIN],
+    )
+    assert invoice.visit_id == visit.id
+    assert invoice.charges[0].fee_schedule_item_id == fee.id
+    assert invoice.charges[0].total_amount == fee.unit_price
+    assert invoice.total_amount == fee.unit_price
+
+
+def test_89_paid_invoice_updates_and_appears_as_paid(
+    client: TestClient,
+    seeded_users: dict[UserRole, User],
+    db_session: Session,
+) -> None:
+    """Test 89: paid state persists and appears in the Billing ledger."""
+
+    _, _, _, invoice = enabled_invoice_context(
+        db_session,
+        seeded_users[UserRole.CLINIC_ADMIN],
+    )
+    login_as(client, seeded_users[UserRole.BILLING_CLERK])
+    response = client.post(
+        f"/billing/invoices/{invoice.id}/status",
+        data={"status": "paid"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    db_session.refresh(invoice)
+    assert invoice.status is InvoiceStatus.PAID
+    dashboard = client.get("/billing")
+    assert dashboard.status_code == 200
+    assert f"#{invoice.id}" in dashboard.text
+    assert "paid" in dashboard.text.lower()
+
+
+def test_90_printed_invoice_contains_branding_and_itemization(
+    client: TestClient,
+    seeded_users: dict[UserRole, User],
+    db_session: Session,
+) -> None:
+    """Test 90: printed output contains clinic branding and line details."""
+
+    clinic_admin = seeded_users[UserRole.CLINIC_ADMIN]
+    _, _, fee, invoice = enabled_invoice_context(db_session, clinic_admin)
+    clinic = db_session.scalar(select(Clinic).where(Clinic.id == clinic_admin.clinic_id))
+    assert clinic is not None
+    clinic.branding_reference = "/static/test-clinic-logo.svg"
+    db_session.commit()
+
+    login_as(client, seeded_users[UserRole.BILLING_CLERK])
+    response = client.get(f"/billing/invoices/{invoice.id}/print")
+    assert response.status_code == 200
+    assert "Test Clinic" in response.text
+    assert "/static/test-clinic-logo.svg" in response.text
+    assert f"Invoice #{invoice.id}" in response.text
+    assert fee.name in response.text
+    assert fee.description in response.text
+    assert "$150.00" in response.text
+    assert "Unpaid" in response.text
+
+
+def test_91_fee_schedule_edits_are_not_retroactive(
+    client: TestClient,
+    seeded_users: dict[UserRole, User],
+    db_session: Session,
+) -> None:
+    """Test 91: editing a fee leaves an existing invoice amount unchanged."""
+
+    clinic_admin = seeded_users[UserRole.CLINIC_ADMIN]
+    _, _, fee, invoice = enabled_invoice_context(db_session, clinic_admin)
+    original_amount = invoice.total_amount
+    login_as(client, clinic_admin)
+    response = client.post(
+        f"/admin/billing/fees/{fee.id}",
+        data={
+            "name": fee.name,
+            "description": "Updated future description",
+            "unit_price": "999.00",
+            "active": "true",
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    db_session.refresh(fee)
+    db_session.refresh(invoice)
+    assert fee.unit_price == Decimal("999.00")
+    assert invoice.total_amount == original_amount
+    assert invoice.charges[0].total_amount == original_amount
 
 
 def test_charges_snapshot_fees_and_paid_state_is_audited(
@@ -206,7 +417,7 @@ def test_charges_snapshot_fees_and_paid_state_is_audited(
     assert "Print / Save as PDF" in print_response.text
 
 
-def test_disabling_billing_retains_history_and_reenabling_restores_access(
+def test_48_disabling_billing_retains_history_and_reenabling_restores_access(
     client: TestClient,
     seeded_users: dict[UserRole, User],
     db_session: Session,
