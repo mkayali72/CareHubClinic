@@ -169,3 +169,17 @@ Migration: PASS — Applied `0005_clinical_documentation` and confirmed it is th
 Clinical suite: PASS — `python -m pytest -q tests/test_clinical.py` completed with 9 passed and 2 existing dependency deprecation warnings.
 Full regression suite: PASS — `python -m pytest -q` completed with 62 passed and 3 existing dependency deprecation warnings.
 Workflow: PASS — Restarted the OB-GYN Clinic App workflow; local `/health` returned `{"status":"ok","database":"ok"}` and `/login` returned HTTP 200.
+
+## 2026-09-12 — Prompt 8.T — Prescriptions
+
+Test 83: PASS — Submitted a prescription through the authenticated inline visit slide-over POST and confirmed the persisted Prescription references the selected Visit, Patient, and MedicationDefinition.
+Test 84: PASS — Confirmed an unsafe medication raises a pregnancy warning for a patient with an active PregnancyEpisode, then explicitly confirmed the same medication produces no pregnancy warning and can be prescribed for a patient without an active pregnancy.
+Test 85: PASS — Confirmed a medication matching the patient's recorded penicillin allergy raises an allergy warning and cannot be confirmed without acknowledgment, while a non-conflicting vitamin-category medication produces no allergy warning and can be prescribed.
+Test 86: PASS — Rendered the print prescription view and asserted the actual HTML contains clinic name and branding reference, patient name, medication, dosage, frequency, duration, and prescriber identification.
+Test 87: PASS — Confirmed the Patient Summary immediately displays a newly added prescription, then removes it from the active current-medications projection after the intended soft-discontinuation while retaining the database record and deletion timestamp.
+Prompt 3.T regression: PASS — `python -m pytest -q tests/test_foundation.py` completed with 17 passed and 3 existing dependency deprecation warnings.
+Prompt 4.T regression: PASS — `python -m pytest -q tests/test_patients.py` completed with 24 passed and 2 existing dependency deprecation warnings.
+Prompt 5.T regression: PASS — `python -m pytest -q tests/test_scheduling.py` completed with 12 passed and 2 existing dependency deprecation warnings.
+Prompt 6.T regression: PASS — `python -m pytest -q tests/test_clinical.py` completed with 29 passed and 2 existing dependency deprecation warnings.
+Prompt 7.T regression: PASS — `python -m pytest -q tests/test_labs.py` completed with 15 passed and 2 existing dependency deprecation warnings.
+Combined Prompt 3.T–7.T plus Prompt 8.T regression: PASS — `python -m pytest -q tests/test_foundation.py tests/test_patients.py tests/test_scheduling.py tests/test_clinical.py tests/test_labs.py tests/test_prescriptions.py` completed with 108 passed and 3 existing dependency deprecation warnings.
