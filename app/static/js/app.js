@@ -54,6 +54,32 @@
     });
   }
 
+  function requestId() {
+    if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+    return `request-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+
+  function setSubmissionState(form, state, message) {
+    const button = form?.querySelector("[data-submit-button]");
+    const status = form?.querySelector("[data-submit-status]");
+    if (!form) return;
+    if (state === "loading") {
+      form.setAttribute("aria-busy", "true");
+      if (button) button.disabled = true;
+      if (status) {
+        status.classList.remove("submit-error");
+        status.textContent = message || "Saving…";
+      }
+    } else {
+      form.removeAttribute("aria-busy");
+      if (button) button.disabled = false;
+      if (status && state === "error") {
+        status.classList.add("submit-error");
+        status.textContent = message || "Unable to save. Check your connection and try again.";
+      }
+    }
+  }
+
   function openMenu() {
     if (!menu || !backdrop) return;
     backdrop.hidden = false;
@@ -92,11 +118,38 @@
     button.addEventListener("click", () => applyContrast(root.dataset.contrast === "high" ? "standard" : "high"));
   });
 
+  document.querySelectorAll("[data-idempotency-form]").forEach((form) => {
+    const field = form.querySelector("[data-idempotency-key]");
+    if (field && !field.value) field.value = requestId();
+  });
+
   menuButton?.addEventListener("click", openMenu);
   closeButton?.addEventListener("click", closeMenu);
   backdrop?.addEventListener("click", closeMenu);
   menu?.querySelectorAll("a").forEach((link) => link.addEventListener("click", closeMenu));
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && menu?.dataset.open === "true") closeMenu();
+  });
+
+  document.body.addEventListener("htmx:beforeRequest", (event) => {
+    const form = event.detail.elt?.closest?.("form[data-idempotency-form]");
+    setSubmissionState(form, "loading", "Saving…");
+  });
+  document.body.addEventListener("htmx:afterRequest", (event) => {
+    const form = event.detail.elt?.closest?.("form[data-idempotency-form]");
+    const status = event.detail.xhr?.status || 0;
+    if (status >= 400) {
+      setSubmissionState(form, "error", "Unable to save. Check your connection and try again.");
+    } else {
+      setSubmissionState(form, "done");
+    }
+  });
+  document.body.addEventListener("htmx:sendError", (event) => {
+    const form = event.detail.elt?.closest?.("form[data-idempotency-form]");
+    setSubmissionState(form, "error", "Connection lost. Nothing was duplicated; try again.");
+  });
+  document.body.addEventListener("htmx:responseError", (event) => {
+    const form = event.detail.elt?.closest?.("form[data-idempotency-form]");
+    setSubmissionState(form, "error", "The server could not save this yet. Try again.");
   });
 })();

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
-from app.models import AppointmentType, User, UserRole
+from app.models import Appointment, AppointmentType, User, UserRole
 from app.services.auth import require_roles
 from app.services.scheduling import (
     APPOINTMENT_TYPE_ADMIN_ROLES,
@@ -268,12 +268,41 @@ def create_appointment_route(
     appointment_type_id: int = Form(...),
     scheduled_at: str = Form(...),
     duration_minutes: int = Form(0),
+    client_request_id: str | None = Form(default=None),
     current_user: User = Depends(require_roles(*SCHEDULING_WRITE_ROLES)),
     db: Session = Depends(get_db),
 ) -> Response:
     """Create an appointment for an existing patient."""
 
     parsed_scheduled_at = parse_scheduled_at(scheduled_at)
+    client_request_id = client_request_id.strip() if client_request_id else None
+    if client_request_id and len(client_request_id) > 128:
+        raise HTTPException(status_code=422, detail="The client request ID is too long.")
+    if client_request_id:
+        existing = db.scalar(
+            select(Appointment)
+            .where(
+                Appointment.clinic_id == current_user.clinic_id,
+                Appointment.client_request_id == client_request_id,
+            )
+            .execution_options(include_deleted=True)
+        )
+        if existing is not None:
+            if request.headers.get("HX-Request") == "true":
+                return templates.TemplateResponse(
+                    request=request,
+                    name="schedule/partials/calendar.html",
+                    context=_schedule_context(
+                        request,
+                        db,
+                        current_user,
+                        existing.scheduled_at.date(),
+                    ),
+                )
+            return RedirectResponse(
+                url=f"/schedule?date={existing.scheduled_at.date().isoformat()}",
+                status_code=303,
+            )
     try:
         create_appointment(
             db=db,
@@ -284,6 +313,7 @@ def create_appointment_route(
             appointment_type_id=appointment_type_id,
             scheduled_at=parsed_scheduled_at,
             duration_minutes=duration_minutes or None,
+            client_request_id=client_request_id,
         )
         db.commit()
     except (PermissionError, ValueError) as error:

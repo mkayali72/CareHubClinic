@@ -548,3 +548,77 @@ complete checklist on a **real phone browser**—at minimum iOS Safari and
 Android Chrome—before considering this pass done. Verify real touch scrolling,
 keyboard behavior, safe-area/viewport handling, modal dismissal, and browser
 autofill on both platforms.
+
+## Prompt 13.T — Mobile/Responsive
+
+QA plan reference: `04-qa-test-plan.md` was not present in the workspace. The
+following checklist maps the requested Tests 97–101 to the current application.
+Tests 97–99 are intentionally device-dependent. Tests 100–101 have automated
+coverage and should still be spot-checked during the device pass.
+
+### Test 97 — Complete visit notes on real phones
+
+- [ ] **97.1 iOS Safari — prenatal:** On a real iPhone, sign in as a clinical
+      user and complete one prenatal visit note. Reach and use the visit type,
+      visit date, pregnancy episode, vitals, prenatal details, ultrasound
+      findings, clinical narrative, diagnoses, save, and next-action controls.
+- [ ] **97.2 iOS Safari — gyn annual:** Complete one gyn annual note on the same
+      real iPhone. Confirm menstrual history, Pap/HPV dates, shared vitals,
+      narrative, diagnoses, save, and next-action controls are reachable and
+      usable.
+- [ ] **97.3 iOS Safari — postpartum:** Complete one postpartum note. Confirm
+      shared vitals, narrative, diagnoses, save, and next-action controls are
+      reachable and usable without clipped fields or keyboard obstruction.
+- [ ] **97.4 iOS Safari — problem-focused:** Complete one problem-focused note.
+      Confirm shared vitals, narrative, diagnoses, save, and next-action
+      controls are reachable and usable.
+- [ ] **97.5 Android Chrome — prenatal:** Repeat a complete prenatal note on a
+      real Android phone and verify every field listed in 97.1.
+- [ ] **97.6 Android Chrome — gyn annual:** Repeat a complete gyn annual note
+      and verify every field listed in 97.2.
+- [ ] **97.7 Android Chrome — postpartum:** Repeat a complete postpartum note
+      and verify every field listed in 97.3.
+- [ ] **97.8 Android Chrome — problem-focused:** Repeat a complete
+      problem-focused note and verify every field listed in 97.4.
+
+### Test 98 — Full-screen clinical panels on real phones
+
+- [ ] **98.1 Lab panel:** On a real iOS Safari phone, open the lab-order panel
+      from a saved visit. Confirm it becomes a full-screen modal, the Close
+      control remains reachable, the test list and bundle selector are usable,
+      and the Create lab orders button is not clipped or hidden by the keyboard.
+- [ ] **98.2 Prescription panel:** On the same iOS Safari phone, open the
+      prescription panel. Confirm medication selection, dosage/frequency/
+      duration fields, warning acknowledgments, history, print link, and
+      confirmation button are all reachable.
+- [ ] **98.3 Android Chrome repeat:** Repeat 98.1 and 98.2 on a real Android
+      Chrome phone, including scrolling to the bottom of each modal and
+      dismissing it without navigating away from the visit.
+
+### Test 99 — One-handed navigation and touch targets
+
+- [ ] **99.1 iOS Safari:** On a real iPhone, open and close the hamburger menu
+      one-handed. Confirm the menu, backdrop, close control, navigation links,
+      accessibility controls, and primary page actions can be tapped without
+      precision tapping or accidental adjacent activation.
+- [ ] **99.2 Android Chrome:** Repeat 99.1 on a real Android phone. Confirm
+      menu scrolling, Escape-equivalent/back dismissal, and navigation work
+      correctly with one-handed use.
+- [ ] **99.3 Cross-screen spot check:** On both phones, spot-check the visit,
+      calendar, queue, patient tabs, report filters, and panel buttons for
+      comfortable touch targets and visible focus/active feedback.
+
+### Test 100 — Automated theme coverage
+
+- [ ] Run `python -m pytest -q tests/test_responsive.py -k test_100`.
+      The automated test checks dark-mode selectors and toggle behavior in the
+      shared CSS/JavaScript and spot-checks multiple authenticated pages, not
+      only `/login`.
+
+### Test 101 — Automated slow/lossy form retry coverage
+
+- [ ] Run `python -m pytest -q tests/test_responsive.py -k test_101`.
+      The automated test commits an appointment, simulates the first response
+      being dropped, retries the same client request ID, and verifies that
+      exactly one appointment exists. It also checks the loading, busy, and
+      clear connection-error UI contract.

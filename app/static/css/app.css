@@ -73,6 +73,21 @@ textarea:focus-visible {
   outline-offset: 2px;
 }
 
+.htmx-indicator {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+
+.htmx-indicator.htmx-request,
+.htmx-indicator.submit-error {
+  opacity: 1;
+}
+
+.submit-error {
+  color: #be123c;
+}
+
 .mobile-sidebar {
   position: fixed;
   inset: 0 auto 0 0;

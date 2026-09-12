@@ -694,6 +694,11 @@ class Appointment(SoftDeleteMixin, Base):
             "duration_minutes > 0",
             name="ck_appointments_duration_positive",
         ),
+        UniqueConstraint(
+            "clinic_id",
+            "client_request_id",
+            name="uq_appointments_clinic_client_request_id",
+        ),
     )
 
     id: Mapped[int] = mapped_column(
@@ -735,6 +740,11 @@ class Appointment(SoftDeleteMixin, Base):
         nullable=False,
         index=True,
         comment="Clinic-configurable appointment type.",
+    )
+    client_request_id: Mapped[str | None] = mapped_column(
+        String(length=128),
+        nullable=True,
+        comment="Browser-generated request identity used to make retries safe.",
     )
     status: Mapped[AppointmentStatus] = mapped_column(
         SqlEnum(

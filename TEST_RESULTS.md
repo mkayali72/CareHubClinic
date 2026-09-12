@@ -324,3 +324,15 @@ Prompt 8.T regression: PASS — Included in the final full-suite run.
 Prompt 9.T regression: PASS — Included in the final full-suite run.
 Prompt 10.T regression: PASS — Included in the final full-suite run.
 Prompt 11.T regression: PASS — Included in the final full-suite run.
+
+## Prompt 13.T — Mobile/Responsive
+
+QA plan reference: `04-qa-test-plan.md` was not present in the workspace. Tests
+97–99 remain intentionally device-dependent; Tests 100–101 have automated
+coverage in `tests/test_responsive.py`.
+
+Test 97: MANUAL — Complete visit notes for prenatal, gyn annual, postpartum, and problem-focused visit types on real iOS Safari and Android Chrome devices; see `TESTING.md`, Prompt 13.T, Test 97.1–97.8.
+Test 98: MANUAL — Open lab-order and prescription panels on real iOS Safari and Android Chrome phones and confirm full-screen, unclipped modal behavior; see `TESTING.md`, Prompt 13.T, Test 98.1–98.3.
+Test 99: MANUAL — Verify one-handed hamburger navigation and touch-target usability on real iOS Safari and Android Chrome devices; see `TESTING.md`, Prompt 13.T, Test 99.1–99.3.
+Test 100: PASS — Automated `tests/test_responsive.py::test_100_theme_controls_and_dark_mode_contract_span_shared_pages` checks dark-mode CSS selectors, JavaScript toggle/localStorage behavior, and shared controls across welcome, patients, patient detail, schedule, reports, labs, prescriptions, and licensing pages.
+Test 101: PASS — Automated `tests/test_responsive.py::test_101_dropped_first_response_retry_does_not_duplicate_appointment` simulates a committed appointment whose first response is dropped, retries the same client request ID, verifies exactly one appointment exists, and checks loading/error-state hooks and copy.

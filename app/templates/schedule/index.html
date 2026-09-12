@@ -39,7 +39,8 @@
             <p class="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">Existing patient</p>
             <h3 class="mt-1 text-xl font-semibold text-slate-950">Book appointment</h3>
             {% if patients and doctors and appointment_types %}
-              <form class="mt-5 space-y-4" method="post" action="/schedule/appointments" hx-post="/schedule/appointments" hx-target="#calendar-grid" hx-swap="innerHTML">
+              <form class="mt-5 space-y-4" method="post" action="/schedule/appointments" hx-post="/schedule/appointments" hx-target="#calendar-grid" hx-swap="innerHTML" hx-indicator="#appointment-submit-status" data-idempotency-form>
+                <input type="hidden" name="client_request_id" data-idempotency-key />
                 <label class="block text-sm font-medium text-slate-700">Patient
                   <select class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" name="patient_id" required>
                     <option value="">Select patient</option>
@@ -64,7 +65,8 @@
                     <input class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" type="number" name="duration_minutes" min="1" placeholder="Use type default" />
                   </label>
                 </div>
-                <button class="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700" type="submit">Add to schedule</button>
+                <button class="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700" type="submit" data-submit-button>Add to schedule</button>
+                <p id="appointment-submit-status" class="htmx-indicator text-sm text-slate-500" data-submit-status role="status" aria-live="polite">Saving appointment…</p>
               </form>
             {% else %}
               <p class="mt-4 rounded-xl border border-dashed border-indigo-200 bg-white px-4 py-4 text-sm leading-6 text-slate-500">Add at least one physician, patient, and appointment type before booking.</p>

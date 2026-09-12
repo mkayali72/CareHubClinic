@@ -181,6 +181,7 @@ def create_appointment(
     scheduled_at: datetime,
     duration_minutes: int | None = None,
     status: AppointmentStatus = AppointmentStatus.SCHEDULED,
+    client_request_id: str | None = None,
 ) -> Appointment:
     """Create and audit a clinic-scoped appointment.
 
@@ -194,6 +195,7 @@ def create_appointment(
         scheduled_at: Clinic-local appointment date and time.
         duration_minutes: Optional override for the type default.
         status: Initial appointment status.
+        client_request_id: Optional browser request identity used for safe retries.
 
     Returns:
         A pending Appointment row. The caller controls the transaction commit.
@@ -223,6 +225,7 @@ def create_appointment(
         scheduled_at=scheduled_at,
         duration_minutes=resolved_duration,
         status=status,
+        client_request_id=client_request_id,
     )
     db.add(appointment)
     db.flush()
