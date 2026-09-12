@@ -1,0 +1,32 @@
+Write automated tests for the following, referencing 04-qa-test-plan.md:
+
+- Test 45: with billing_module_enabled=False for a test clinic, call every
+  billing-related API route directly and confirm each returns a not-found/
+  disabled response — NOT just an empty UI element. Also confirm the Billing
+  sidebar item and patient-chart Billing tab are absent from the rendered pages.
+- Test 46: with billing disabled, confirm revenue/financial reports are absent
+  from the Reporting section's available report list.
+- Test 47: toggle billing_module_enabled to True for that clinic and confirm the
+  module becomes immediately usable (no restart required in this test context)
+  without affecting any existing patient/visit data.
+- Test 48: create some invoice/charge history while enabled, then toggle billing
+  back to disabled, and confirm that history is NOT deleted (query the database
+  directly to confirm it still exists, even though it's no longer user-accessible
+  through the disabled module).
+- Test 49: as billing_clerk, with billing disabled, attempt to reach a billing
+  screen/route and confirm a graceful "not available" response rather than a
+  broken/empty page or a server error.
+- Test 88: with billing enabled, record a charge against a visit using the
+  clinic's fee schedule and confirm the correct amount is applied.
+- Test 89: mark an invoice paid and confirm it updates correctly and is reflected
+  wherever payment status is displayed.
+- Test 90: generate a printed/exported invoice and confirm correct clinic
+  branding and itemization in the actual output.
+- Test 91: edit the fee schedule after an invoice already exists and confirm the
+  existing invoice's amount is unchanged (fee schedule changes are not
+  retroactive).
+
+Also re-run Prompt 3.T through 8.T in full. Fix any failures. Record every test's
+outcome in TEST_RESULTS.md under a "Prompt 9.T — Billing Module Toggle" heading,
+one PASS/FAIL/MANUAL line per test number, with a clear explanation under any
+FAIL.
