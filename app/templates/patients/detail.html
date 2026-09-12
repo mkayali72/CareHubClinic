@@ -22,6 +22,8 @@
       </div>
     {% elif active_tab == "prescriptions" %}
       {% include "patients/partials/prescriptions.html" %}
+    {% elif active_tab == "billing" %}
+      {% include "patients/partials/billing.html" %}
     {% else %}
       <section class="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
         <p class="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">{{ active_tab|replace("_", " ")|title }}</p>

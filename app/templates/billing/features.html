@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="mx-auto max-w-3xl space-y-6">
+    <div><p class="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">Clinic configuration</p><h2 class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Optional modules</h2><p class="mt-2 text-sm leading-6 text-slate-500">A disabled module is inaccessible at the server boundary, not merely hidden from navigation. Turning Billing off does not delete, soft-delete, or hide existing invoices and charges; it only pauses new Billing operations until you enable it again.</p></div>
+    <form class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm" method="post" action="/admin/clinic-features/billing">
+      <div class="flex items-start justify-between gap-4"><div><h3 class="text-xl font-semibold text-slate-950">Billing module</h3><p class="mt-1 text-sm text-slate-500">Enable fee schedules, charge entry, invoice status, and printable invoices for this clinic.</p></div><label class="flex items-center gap-2 text-sm font-semibold text-slate-700"><input class="h-5 w-5 rounded border-slate-300 text-indigo-600" type="checkbox" name="enabled" value="true" {% if billing_enabled %}checked{% endif %} /> Enabled</label></div>
+      <button class="mt-6 rounded-xl bg-indigo-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-800" type="submit">Save module setting</button>
+    </form>
+  </section>
+{% endblock %}

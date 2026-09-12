@@ -7,6 +7,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.config import settings
 from app.routes import (
     auth,
+    billing,
     clinical,
     health,
     labs,
@@ -48,6 +49,7 @@ def create_app() -> FastAPI:
     application.include_router(clinical.router)
     application.include_router(labs.router)
     application.include_router(prescriptions.router)
+    application.include_router(billing.router)
     return application
 
 

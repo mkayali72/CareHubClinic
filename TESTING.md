@@ -271,3 +271,40 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
 - [ ] Confirm prescription queries exclude soft-deleted rows, while the
       retained row and its audit history remain available through an
       administrative include-deleted inspection.
+
+## 2026-09-12 — Optional Billing
+
+Apply all migrations and start the documented FastAPI workflow before testing:
+
+```bash
+alembic upgrade head
+python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+```
+
+- [ ] As a `clinic_admin`, open `/admin/clinic-features` while Billing is
+      disabled. Confirm the feature-settings page remains available, enable
+      Billing, and confirm the Billing sidebar item appears for the admin and
+      a `billing_clerk`.
+- [ ] While Billing is disabled, request `/billing`,
+      `/admin/billing`, a visit charge-entry URL, and a print-invoice URL
+      directly. Confirm each returns HTTP 404 with the graceful
+      **Billing is not available** state rather than a normal empty page.
+- [ ] As a `clinic_admin`, open `/admin/billing`; add, edit, deactivate, and
+      reactivate fee schedule items. Confirm non-admin users cannot change the
+      catalog.
+- [ ] As a `billing_clerk`, open a saved visit's charge-entry panel, select one
+      or more active fee items, and create an invoice. Confirm the invoice is
+      unpaid and every line links to the same visit and patient.
+- [ ] Edit a fee after creating an invoice. Confirm the existing charge keeps
+      its original description and price while future invoices use the new
+      schedule value.
+- [ ] Mark an invoice paid and unpaid from the ledger. Confirm both transitions
+      are persisted and audited.
+- [ ] Open the patient Billing tab and confirm invoice totals, visit links,
+      status, and print links are visible only while the module is enabled.
+- [ ] Open **Print / Save as PDF** and confirm the standalone HTML contains
+      clinic name/branding, invoice number, patient, visit date, line items,
+      total, and payment status.
+- [ ] Disable Billing after creating an invoice. Confirm operational routes
+      return 404 while the invoice row remains in the database. Re-enable the
+      module and confirm the same invoice returns to the ledger unchanged.

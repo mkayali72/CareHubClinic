@@ -352,7 +352,7 @@ def test_patient_tabs_conditionally_show_billing(
     enabled_response = client.get(f"/patients/{patient.id}")
     assert enabled_response.status_code == 200
     assert ">Billing<" in enabled_response.text
-    assert "Coming soon" in client.get(
+    assert "Patient invoices" in client.get(
         f"/patients/{patient.id}?tab=billing"
     ).text
 

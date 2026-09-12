@@ -3,7 +3,7 @@
 Portable FastAPI foundation for an OB/GYN clinic management app. The current
 release includes foundational tenancy, staff authentication, auditing,
 soft-delete infrastructure, Patient Demographics, Scheduling, Visit
-Documentation, Lab Orders, and Prescriptions.
+  Documentation, Lab Orders, Prescriptions, and optional Billing.
 
 ## Run & Operate
 
@@ -45,9 +45,9 @@ Documentation, Lab Orders, and Prescriptions.
 
 The current product surface includes a signed-session login flow, a protected
 welcome page, clinic-scoped patient demographics, a calendar and today's queue,
-    the clinic-scoped Visit Documentation workspace, HTMX Lab Orders and
-    Prescriptions workflows, PostgreSQL-backed `/health`, and foundational
-    audit/soft-delete infrastructure.
+     the clinic-scoped Visit Documentation workspace, HTMX Lab Orders,
+     Prescriptions and optional Billing workflows, PostgreSQL-backed `/health`,
+     and foundational audit/soft-delete infrastructure.
 
 ## User preferences
 
@@ -70,6 +70,11 @@ system, and no Replit-specific dependencies.
 - Prescription pregnancy and allergy checks are server-side soft warnings:
   physicians must explicitly acknowledge each warning before confirmation, but
   the app does not hard-block clinically justified exceptions.
+- Billing is an opt-in clinic feature. Operational Billing routes must check
+  `Clinic.billing_module_enabled` server-side and return a not-found response
+  when disabled; the generic clinic feature-settings route remains available so
+  clinic_admin can re-enable it. Fee edits snapshot into future charges and
+  must never rewrite existing invoice history.
 
 ## Pointers
 

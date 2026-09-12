@@ -47,6 +47,16 @@
               <span class="h-2 w-2 rounded-full bg-fuchsia-500"></span>
               Medication formulary
             </a>
+            <a class="sidebar-link mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-fuchsia-700" href="/admin/clinic-features">
+              <span class="h-2 w-2 rounded-full bg-fuchsia-500"></span>
+              Optional modules
+            </a>
+          {% endif %}
+          {% if user and user.role and user.clinic and user.clinic.billing_module_enabled and user.role.value in ["billing_clerk", "clinic_admin"] %}
+            <a class="sidebar-link mt-2 flex items-center gap-3 rounded-xl bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-800" href="/billing">
+              <span class="h-2 w-2 rounded-full bg-amber-500"></span>
+              Billing
+            </a>
           {% endif %}
           <div class="mt-6 rounded-xl border border-dashed border-slate-200 px-3 py-4">
             <p class="text-xs font-medium text-slate-500">Clinical workspace</p>

@@ -183,3 +183,15 @@ Prompt 5.T regression: PASS — `python -m pytest -q tests/test_scheduling.py` c
 Prompt 6.T regression: PASS — `python -m pytest -q tests/test_clinical.py` completed with 29 passed and 2 existing dependency deprecation warnings.
 Prompt 7.T regression: PASS — `python -m pytest -q tests/test_labs.py` completed with 15 passed and 2 existing dependency deprecation warnings.
 Combined Prompt 3.T–7.T plus Prompt 8.T regression: PASS — `python -m pytest -q tests/test_foundation.py tests/test_patients.py tests/test_scheduling.py tests/test_clinical.py tests/test_labs.py tests/test_prescriptions.py` completed with 108 passed and 3 existing dependency deprecation warnings.
+
+## 2026-09-12 — Optional Billing
+
+Test 88: PASS — Confirmed disabled operational Billing routes return HTTP 404 with the graceful “Billing is not available” state while the clinic-admin feature-settings route remains accessible and can re-enable the module.
+Test 89: PASS — Confirmed only billing_clerk and clinic_admin can operate Billing, clinic_admin can create/edit fee schedule items, and non-admin fee editing is denied.
+Test 90: PASS — Created visit-linked invoices and charges, confirmed fee price snapshots survive later fee edits, audited paid/unpaid transitions, rendered patient charge-entry controls, and verified branded print content.
+Test 91: PASS — Disabled Billing after invoice creation, confirmed operational routes return 404 without deleting the invoice, then re-enabled the module and confirmed the same invoice returns to the ledger.
+Migration: PASS — Applied `0009_billing`; Alembic reports `0009_billing (head)`.
+Billing suite: PASS — `python -m pytest -q tests/test_billing.py` completed with 4 passed and 2 existing dependency deprecation warnings.
+Full regression suite: PASS — `python -m pytest -q` completed with 112 passed and 3 existing dependency deprecation warnings.
+Compilation and diff checks: PASS — `python -m compileall -q app alembic tests` and `git diff --check` completed without errors.
+Workflow: PASS — Restarted the OB-GYN Clinic App workflow; local `/health` returned `{"status":"ok","database":"ok"}`, `/login` returned HTTP 200, and workflow logs showed clean Uvicorn startup.

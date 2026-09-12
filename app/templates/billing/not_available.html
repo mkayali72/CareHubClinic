@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="mx-auto max-w-2xl rounded-3xl border border-amber-200 bg-amber-50 p-8 shadow-sm">
+    <p class="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Optional module</p>
+    <h2 class="mt-2 text-3xl font-semibold tracking-tight text-amber-950">Billing is not available</h2>
+    <p class="mt-4 text-sm leading-7 text-amber-900">{{ message }} A clinic administrator can enable it from Optional modules.</p>
+    {% if user and user.role and user.role.value == "clinic_admin" %}
+      <a class="mt-6 inline-flex rounded-xl bg-amber-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-800" href="/admin/clinic-features">Open Optional modules</a>
+    {% endif %}
+  </section>
+{% endblock %}

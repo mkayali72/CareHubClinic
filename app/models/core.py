@@ -7,6 +7,7 @@ reuse SoftDeleteMixin where deletion is meaningful.
 
 from datetime import date
 from datetime import datetime
+from decimal import Decimal
 from enum import Enum
 from typing import Any
 
@@ -20,6 +21,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     JSON,
+    Numeric,
     String,
     Table,
     Text,
@@ -93,6 +95,13 @@ class PregnancySafetyFlag(str, Enum):
     TRUE = "true"
     FALSE = "false"
     UNKNOWN = "unknown"
+
+
+class InvoiceStatus(str, Enum):
+    """Allowed payment states for an invoice."""
+
+    UNPAID = "unpaid"
+    PAID = "paid"
 
 
 class AuditAction(str, Enum):
@@ -240,6 +249,18 @@ class Clinic(SoftDeleteMixin, Base):
         back_populates="clinic",
         cascade="save-update, merge",
     )
+    fee_schedule_items: Mapped[list["FeeScheduleItem"]] = relationship(
+        back_populates="clinic",
+        cascade="save-update, merge",
+    )
+    invoices: Mapped[list["Invoice"]] = relationship(
+        back_populates="clinic",
+        cascade="save-update, merge",
+    )
+    charges: Mapped[list["Charge"]] = relationship(
+        back_populates="clinic",
+        cascade="save-update, merge",
+    )
 
 
 class Patient(SoftDeleteMixin, Base):
@@ -354,6 +375,14 @@ class Patient(SoftDeleteMixin, Base):
         cascade="save-update, merge",
     )
     prescriptions: Mapped[list["Prescription"]] = relationship(
+        back_populates="patient",
+        cascade="save-update, merge",
+    )
+    invoices: Mapped[list["Invoice"]] = relationship(
+        back_populates="patient",
+        cascade="save-update, merge",
+    )
+    charges: Mapped[list["Charge"]] = relationship(
         back_populates="patient",
         cascade="save-update, merge",
     )
@@ -549,6 +578,11 @@ class User(SoftDeleteMixin, Base):
     prescriptions: Mapped[list["Prescription"]] = relationship(
         back_populates="prescribed_by_user",
         foreign_keys="Prescription.prescribed_by_user_id",
+        cascade="save-update, merge",
+    )
+    created_invoices: Mapped[list["Invoice"]] = relationship(
+        back_populates="created_by_user",
+        foreign_keys="Invoice.created_by_user_id",
         cascade="save-update, merge",
     )
 
@@ -857,6 +891,14 @@ class Visit(SoftDeleteMixin, Base):
         cascade="save-update, merge",
     )
     lab_orders: Mapped[list["LabOrder"]] = relationship(
+        back_populates="visit",
+        cascade="save-update, merge",
+    )
+    invoices: Mapped[list["Invoice"]] = relationship(
+        back_populates="visit",
+        cascade="save-update, merge",
+    )
+    charges: Mapped[list["Charge"]] = relationship(
         back_populates="visit",
         cascade="save-update, merge",
     )
@@ -1238,6 +1280,214 @@ class Prescription(SoftDeleteMixin, Base):
     prescribed_by_user: Mapped["User"] = relationship(
         back_populates="prescriptions",
         foreign_keys=[prescribed_by_user_id],
+    )
+
+
+class FeeScheduleItem(SoftDeleteMixin, Base):
+    """Represent one clinic-editable billable service and its current price.
+
+    Invoice charges snapshot the name and amount at creation time, so changing
+    this catalog does not rewrite financial history.
+    """
+
+    __tablename__ = "fee_schedule_items"
+    __table_args__ = (
+        UniqueConstraint(
+            "clinic_id",
+            "name",
+            name="uq_fee_schedule_items_clinic_name",
+        ),
+        CheckConstraint(
+            "unit_price >= 0",
+            name="ck_fee_schedule_items_unit_price_nonnegative",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    clinic_id: Mapped[int] = mapped_column(
+        ForeignKey("clinics.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    unit_price: Mapped[Decimal] = mapped_column(
+        Numeric(10, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+    )
+    active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    clinic: Mapped[Clinic] = relationship(back_populates="fee_schedule_items")
+    charges: Mapped[list["Charge"]] = relationship(
+        back_populates="fee_schedule_item",
+        cascade="save-update, merge",
+    )
+
+
+class Invoice(SoftDeleteMixin, Base):
+    """Represent a bill for one visit and patient.
+
+    Invoices remain in the database when Billing is disabled. The clinic flag
+    controls access to active Billing operations; it is never a data-retention
+    switch.
+    """
+
+    __tablename__ = "invoices"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    clinic_id: Mapped[int] = mapped_column(
+        ForeignKey("clinics.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    visit_id: Mapped[int] = mapped_column(
+        ForeignKey("visits.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    patient_id: Mapped[int] = mapped_column(
+        ForeignKey("patients.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    status: Mapped[InvoiceStatus] = mapped_column(
+        SqlEnum(
+            InvoiceStatus,
+            name="invoice_status",
+            values_callable=enum_values,
+        ),
+        nullable=False,
+        default=InvoiceStatus.UNPAID,
+        server_default=InvoiceStatus.UNPAID.value,
+        index=True,
+    )
+    notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    created_by_user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        index=True,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    clinic: Mapped[Clinic] = relationship(back_populates="invoices")
+    visit: Mapped[Visit] = relationship(back_populates="invoices")
+    patient: Mapped[Patient] = relationship(back_populates="invoices")
+    created_by_user: Mapped["User"] = relationship(
+        back_populates="created_invoices",
+        foreign_keys=[created_by_user_id],
+    )
+    charges: Mapped[list["Charge"]] = relationship(
+        back_populates="invoice",
+        cascade="save-update, merge",
+    )
+
+    @property
+    def total_amount(self) -> Decimal:
+        """Return the sum of active line-item snapshots for this invoice."""
+
+        return sum(
+            (charge.total_amount for charge in self.charges),
+            Decimal("0.00"),
+        )
+
+
+class Charge(SoftDeleteMixin, Base):
+    """Represent one invoice line item with a fee-price snapshot.
+
+    ``unit_price`` and ``description_snapshot`` are copied from the fee
+    schedule at creation time. Historical charges therefore remain stable when
+    clinic administrators edit the current fee schedule.
+    """
+
+    __tablename__ = "charges"
+    __table_args__ = (
+        CheckConstraint("quantity > 0", name="ck_charges_quantity_positive"),
+        CheckConstraint(
+            "unit_price >= 0",
+            name="ck_charges_unit_price_nonnegative",
+        ),
+        CheckConstraint(
+            "total_amount >= 0",
+            name="ck_charges_total_amount_nonnegative",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    clinic_id: Mapped[int] = mapped_column(
+        ForeignKey("clinics.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    invoice_id: Mapped[int] = mapped_column(
+        ForeignKey("invoices.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    visit_id: Mapped[int] = mapped_column(
+        ForeignKey("visits.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    patient_id: Mapped[int] = mapped_column(
+        ForeignKey("patients.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    fee_schedule_item_id: Mapped[int] = mapped_column(
+        ForeignKey("fee_schedule_items.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    description_snapshot: Mapped[str] = mapped_column(Text, nullable=False)
+    unit_price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    quantity: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+        server_default="1",
+    )
+    total_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    clinic: Mapped[Clinic] = relationship(back_populates="charges")
+    invoice: Mapped[Invoice] = relationship(back_populates="charges")
+    visit: Mapped[Visit] = relationship(back_populates="charges")
+    patient: Mapped[Patient] = relationship(back_populates="charges")
+    fee_schedule_item: Mapped[FeeScheduleItem] = relationship(
+        back_populates="charges",
     )
 
 

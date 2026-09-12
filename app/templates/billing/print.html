@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Invoice #{{ invoice.id }} · {{ invoice.patient.name }}</title>
+    <style>
+      :root { color: #172033; font-family: Arial, sans-serif; } body { margin: 0; background: #eef2f7; } .toolbar { padding: 18px; text-align: right; } .toolbar button { border: 0; border-radius: 8px; background: #4338ca; color: white; cursor: pointer; padding: 10px 16px; font-weight: 700; } .sheet { box-sizing: border-box; max-width: 800px; min-height: 960px; margin: 0 auto 32px; padding: 56px; background: white; box-shadow: 0 10px 35px rgba(15, 23, 42, .12); } .brand { display: flex; align-items: center; gap: 18px; border-bottom: 2px solid #e2e8f0; padding-bottom: 24px; } .brand img { max-width: 150px; max-height: 72px; object-fit: contain; } .brand h1 { margin: 0; font-size: 24px; } .eyebrow { margin: 0 0 8px; color: #4f46e5; font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; } .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 34px; } .meta div { border-radius: 10px; background: #f8fafc; padding: 14px; } .label { color: #64748b; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; } .value { margin-top: 5px; font-size: 15px; font-weight: 700; } table { width: 100%; border-collapse: collapse; margin-top: 34px; } th { border-bottom: 2px solid #cbd5e1; color: #64748b; font-size: 11px; letter-spacing: .08em; text-align: left; text-transform: uppercase; } td { border-bottom: 1px solid #e2e8f0; padding: 16px 4px; vertical-align: top; } .money { text-align: right; white-space: nowrap; } .total { margin-top: 22px; display: flex; justify-content: flex-end; gap: 24px; font-size: 20px; font-weight: 800; } .footer { margin-top: 100px; border-top: 1px solid #cbd5e1; padding-top: 18px; color: #64748b; font-size: 12px; } @media print { body { background: white; } .toolbar { display: none; } .sheet { margin: 0; min-height: auto; box-shadow: none; } } @media (max-width: 640px) { .sheet { padding: 28px; } .meta { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar"><button type="button" onclick="window.print()">Print / Save as PDF</button></div>
+    <main class="sheet">
+      <header class="brand">{% if clinic.branding_reference %}<img src="{{ clinic.branding_reference }}" alt="{{ clinic.name }} logo" />{% endif %}<div><p class="eyebrow">Invoice #{{ invoice.id }}</p><h1>{{ clinic.name }}</h1></div></header>
+      <section class="meta"><div><div class="label">Patient</div><div class="value">{{ invoice.patient.name }}</div></div><div><div class="label">Visit date</div><div class="value">{{ invoice.visit.visit_date.strftime("%B %-d, %Y") }}</div></div><div><div class="label">Status</div><div class="value">{{ invoice.status.value|title }}</div></div><div><div class="label">Prepared by</div><div class="value">{{ invoice.created_by_user.full_name }}</div></div></section>
+      <table><thead><tr><th>Description</th><th class="money">Unit price</th><th class="money">Total</th></tr></thead><tbody>{% for charge in invoice.charges %}<tr><td>{{ charge.description_snapshot }}</td><td class="money">${{ "%.2f"|format(charge.unit_price) }}</td><td class="money">${{ "%.2f"|format(charge.total_amount) }}</td></tr>{% endfor %}</tbody></table>
+      <div class="total"><span>Total</span><span>${{ "%.2f"|format(invoice.total_amount) }}</span></div>
+      {% if invoice.notes %}<p><strong>Notes:</strong> {{ invoice.notes }}</p>{% endif %}
+      <footer class="footer"><p>Generated {{ invoice.created_at.strftime("%B %-d, %Y") }} · Visit #{{ invoice.visit_id }}</p><p>Use the browser print dialog to save this branded invoice as a PDF.</p></footer>
+    </main>
+  </body>
+</html>

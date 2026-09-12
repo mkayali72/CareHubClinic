@@ -1,9 +1,10 @@
 # OB/GYN Clinic Management App
 
 This repository contains the portable foundation for a web application that
-supports OB/GYN clinic operations. It includes foundational tenancy,
-authentication, auditing, soft-delete infrastructure, the Patient Demographics,
-Scheduling, and core Visit Documentation modules.
+  supports OB/GYN clinic operations. It includes foundational tenancy,
+  authentication, auditing, soft-delete infrastructure, the Patient Demographics,
+  Scheduling, Visit Documentation, Lab Orders, Prescriptions, and optional
+  Billing modules.
 
 ## Stack
 
@@ -29,14 +30,14 @@ app/
   database.py           SQLAlchemy engine, ORM sessions, and soft-delete filter
   main.py               FastAPI application factory and entry point
   models/               Clinic, Patient, User, scheduling, and clinical entities
-  routes/               Health, authentication, patient, scheduling, clinical, and page routers
+  routes/               Health, authentication, patient, scheduling, clinical, billing, and page routers
   schemas/              Reserved for future request/response schemas
-  services/             Authentication, scheduling, clinical, patient, and audit logic
+  services/             Authentication, scheduling, clinical, patient, billing, and audit logic
   static/               CSS and future static assets
-  templates/            Login, patient, scheduling, visit, welcome, and shared shell
+  templates/            Login, patient, scheduling, visit, billing, welcome, and shared shell
 alembic/
   env.py                Migration environment wired to DATABASE_URL
-  versions/             Foundational, auth-security, patient, scheduling, and clinical migrations
+  versions/             Foundational, auth-security, patient, scheduling, clinical, lab, prescription, and billing migrations
 docker-compose.yml      Portable app + PostgreSQL development environment
 Dockerfile              Container image for the FastAPI app
 requirements.txt        Pinned Python dependencies
@@ -166,7 +167,9 @@ write emergency contact, allergy, medication, and contraception fields.
 
 Patient detail pages include Summary, Visit History, Labs, and Prescriptions
 tabs. A Billing tab is rendered only when the owning Clinic has
-`billing_module_enabled=True`; the tab currently shows an empty placeholder.
+`billing_module_enabled=True` and shows active patient invoices. Billing
+navigation is available to billing clerks and clinic administrators only when
+the module is enabled.
 Only `clinic_admin` can soft-delete a patient. Deletion writes an AuditLog row,
 retains the database record, and removes it from normal patient queries.
 
@@ -369,6 +372,36 @@ medication formulary, soft-deletable prescriptions, warning acknowledgment
 fields, indexes, and starter medication rows for clinics that already exist.
 New clinics are lazily seeded when the formulary is first read.
 
+## Optional Billing
+
+Billing is opt-in per Clinic and defaults to disabled. Clinic administrators
+manage the flag from `/admin/clinic-features`, which remains available while
+Billing is disabled so the module can be re-enabled. Every operational Billing
+route checks the flag on the server; a disabled route returns HTTP 404 with a
+graceful “Billing is not available” page rather than relying on hidden links.
+
+When enabled, billing clerks and clinic administrators can use:
+
+- `/billing` for the clinic invoice ledger and paid/unpaid transitions.
+- Visit charge entry at `/visits/{visit_id}/billing/charge-panel`, with HTMX
+  creation of unpaid invoices from the active fee schedule.
+- `/admin/billing` for the clinic-admin-only fee schedule editor.
+- `/billing/invoices/{id}/print` for a clinic-branded HTML invoice with browser
+  **Print / Save as PDF** output.
+
+`FeeScheduleItem` is a clinic-scoped soft-deletable catalog row. `Invoice` and
+`Charge` are clinic-, patient-, and visit-linked soft-deletable financial
+records. Each charge snapshots the fee name/description and price when it is
+created, so later fee edits never rewrite historical invoices. Disabling the
+module pauses new Billing operations but retains existing invoices, charges,
+and audit history.
+
+## Billing schema sequencing
+
+`0009_billing` creates the PostgreSQL invoice-status enum, clinic fee schedule,
+soft-deletable invoices and charges, indexes, and starter prices for existing
+clinics. New clinics are lazily seeded on first enabled fee-schedule access.
+
 ## Clinical schema sequencing
 
 `0005_clinical_documentation` creates the pregnancy, visit, diagnosis,
@@ -380,8 +413,8 @@ history and pregnancy trend ordering. Apply both with:
 alembic upgrade head
 ```
 
-Clinical records remain clinic-scoped, auditable, and portable to Docker
-Desktop. The optional Billing workflow remains outside this module.
+Clinical and financial records remain clinic-scoped, auditable, and portable to
+Docker Desktop.
 
 ## Development documentation
 
