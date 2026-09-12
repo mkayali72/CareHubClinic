@@ -82,15 +82,52 @@
               <p class="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">Clinic workspace</p>
               <h1 class="mt-1 text-2xl font-semibold tracking-tight text-slate-950">{{ page_title }}</h1>
             </div>
-            <div class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-500">
-              {% if user %}{{ user.role.value|replace("_", " ")|title if user.role else "Unassigned" }}{% else %}Development preview{% endif %}
+             <div class="flex items-center gap-3">
+               {% if user and user.role and user.role.value == "clinic_admin" %}
+                 <a class="relative rounded-full border border-slate-200 bg-slate-50 p-2 text-slate-600 hover:border-indigo-300 hover:text-indigo-700" href="/admin/license" aria-label="License status" title="License status">
+                   <svg aria-hidden="true" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 0 0-5-5.9V4a1 1 0 1 0-2 0v1.1A6 6 0 0 0 6 11v3.2a2 2 0 0 1-.6 1.4L4 17h5m6 0a3 3 0 0 1-6 0m6 0H9"/></svg>
+                   {% if request.state.license_snapshot and request.state.license_snapshot.is_read_only %}<span class="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-white"></span>{% endif %}
+                 </a>
+               {% endif %}
+               <div class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-500">
+                 {% if user %}{{ user.role.value|replace("_", " ")|title if user.role else "Unassigned" }}{% else %}Development preview{% endif %}
+               </div>
             </div>
           </div>
         </header>
+         {% if request.state.license_snapshot and request.state.license_snapshot.is_read_only %}
+           <div id="license-banner" class="border-b border-amber-200 bg-amber-50 px-6 py-3 text-sm text-amber-950 lg:px-10" role="status">
+             <div class="mx-auto flex max-w-7xl items-start gap-3">
+               <span class="mt-0.5 font-semibold">Workspace temporarily read-only.</span>
+               <span id="license-banner-message">{{ request.state.license_snapshot.message }} Writes are paused while the clinic license is renewed; viewing remains available.</span>
+             </div>
+           </div>
+         {% endif %}
         <div class="mx-auto max-w-7xl px-6 py-8 lg:px-10">
           {% block content %}{% endblock %}
         </div>
       </main>
     </div>
+     <script>
+       function showLicenseBanner(message) {
+         let banner = document.getElementById("license-banner");
+         if (!banner) {
+           banner = document.createElement("div");
+           banner.id = "license-banner";
+           banner.className = "border-b border-amber-200 bg-amber-50 px-6 py-3 text-sm text-amber-950 lg:px-10";
+           banner.setAttribute("role", "status");
+           banner.innerHTML = '<div class="mx-auto flex max-w-7xl items-start gap-3"><span class="mt-0.5 font-semibold">Workspace temporarily read-only.</span><span id="license-banner-message"></span></div>';
+           document.querySelector("main")?.prepend(banner);
+         }
+         const messageTarget = document.getElementById("license-banner-message");
+         if (messageTarget) messageTarget.textContent = message + " Your unsaved form content remains in this browser.";
+       }
+
+       document.body.addEventListener("htmx:afterRequest", function (event) {
+         if (event.detail.xhr && event.detail.xhr.status === 423) {
+           showLicenseBanner(event.detail.xhr.responseText || "License renewal is required before saving changes.");
+         }
+       });
+     </script>
   </body>
 </html>

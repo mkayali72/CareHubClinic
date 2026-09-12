@@ -33,6 +33,7 @@ class Settings:
     session_max_age_seconds: int
     login_max_failed_attempts: int
     login_lockout_seconds: int
+    license_check_interval_seconds: int
 
 
 def normalize_database_url(database_url: str) -> str:
@@ -105,6 +106,10 @@ def get_settings() -> Settings:
         session_max_age_seconds=positive_int("SESSION_MAX_AGE_SECONDS", "1209600"),
         login_max_failed_attempts=positive_int("LOGIN_MAX_FAILED_ATTEMPTS", "5"),
         login_lockout_seconds=positive_int("LOGIN_LOCKOUT_SECONDS", "900"),
+        license_check_interval_seconds=positive_int(
+            "LICENSE_CHECK_INTERVAL_SECONDS",
+            "300",
+        ),
     )
 
 

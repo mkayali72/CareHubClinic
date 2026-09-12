@@ -104,6 +104,15 @@ class InvoiceStatus(str, Enum):
     PAID = "paid"
 
 
+class LicenseStatus(str, Enum):
+    """Derived and administrative states for a clinic license."""
+
+    ACTIVE = "active"
+    GRACE = "grace"
+    EXPIRED = "expired"
+    REVOKED = "revoked"
+
+
 class AuditAction(str, Enum):
     """Allowed lifecycle actions recorded in the generic audit log."""
 
@@ -261,6 +270,82 @@ class Clinic(SoftDeleteMixin, Base):
         back_populates="clinic",
         cascade="save-update, merge",
     )
+    license: Mapped["License | None"] = relationship(
+        back_populates="clinic",
+        uselist=False,
+        cascade="save-update, merge",
+    )
+
+
+class License(Base):
+    """Store the local placeholder license for one clinic.
+
+    The application currently evaluates this row locally. The check-in service
+    is deliberately isolated so a future license-server response can replace
+    the local status calculation without changing request enforcement.
+    """
+
+    __tablename__ = "licenses"
+    __table_args__ = (
+        CheckConstraint(
+            "grace_period_days >= 0",
+            name="ck_licenses_grace_period_nonnegative",
+        ),
+        UniqueConstraint("clinic_id", name="uq_licenses_clinic_id"),
+    )
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        comment="Internal license identifier.",
+    )
+    clinic_id: Mapped[int] = mapped_column(
+        ForeignKey("clinics.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Clinic tenant that owns this license.",
+    )
+    status: Mapped[LicenseStatus] = mapped_column(
+        SqlEnum(
+            LicenseStatus,
+            name="license_status",
+            values_callable=enum_values,
+            native_enum=True,
+        ),
+        nullable=False,
+        server_default=LicenseStatus.ACTIVE.value,
+        comment="Locally derived or administratively revoked license state.",
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        index=True,
+        comment="UTC expiration timestamp used by local enforcement.",
+    )
+    last_check_in_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="UTC time of the latest local or future remote check-in.",
+    )
+    grace_period_days: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        server_default="7",
+        comment="Days after expiration during which the clinic is read-only.",
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    clinic: Mapped[Clinic] = relationship(back_populates="license")
 
 
 class Patient(SoftDeleteMixin, Base):

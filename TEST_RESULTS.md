@@ -210,6 +210,21 @@ Full regression suite: PASS — `python -m pytest -q` completed with 124 passed
 and 3 existing dependency deprecation warnings.
 Compilation and diff checks: PASS — `python -m compileall -q app tests alembic`
 and `git diff --check` completed without errors.
+
+## 2026-09-12 — Licensing and subscription enforcement
+
+Focused Licensing suite: PASS — `python -m pytest -q tests/test_licensing.py`
+completed with 6 passed and 2 existing dependency deprecation warnings.
+Full regression suite: PASS — `python -m pytest -q` completed with 135 passed
+and 3 existing dependency deprecation warnings.
+Migration: PASS — Applied `0010_licensing`; Alembic reports
+`0010_licensing (head)`.
+Compilation and diff checks: PASS — `python -m compileall -q app tests alembic`
+and `git diff --check` completed without errors.
+Coverage: PASS — License status evaluation, grace and expiry boundaries,
+server-side stale-session write blocking, HTMX no-swap behavior, admin renewal
+recovery, scheduler check-ins, read-only banners, notification-bell access,
+and visit draft preservation are covered in `tests/test_licensing.py`.
 Migration: PASS — Alembic reports `0009_billing (head)`; Reporting requires no
 schema migration.
 Workflow: PASS — Restarted the OB-GYN Clinic App workflow; local `/health`

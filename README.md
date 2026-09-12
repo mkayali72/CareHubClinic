@@ -4,7 +4,7 @@ This repository contains the portable foundation for a web application that
   supports OB/GYN clinic operations. It includes foundational tenancy,
   authentication, auditing, soft-delete infrastructure, the Patient Demographics,
   Scheduling, Visit Documentation, Lab Orders, Prescriptions, optional Billing,
-  and RBAC-protected Reporting modules.
+  RBAC-protected Reporting, and clinic Licensing enforcement modules.
 
 ## Stack
 
@@ -30,11 +30,11 @@ app/
   database.py           SQLAlchemy engine, ORM sessions, and soft-delete filter
   main.py               FastAPI application factory and entry point
   models/               Clinic, Patient, User, scheduling, and clinical entities
-  routes/               Health, authentication, patient, scheduling, clinical, billing, reporting, and page routers
+  routes/               Health, authentication, patient, scheduling, clinical, billing, reporting, licensing, and page routers
   schemas/              Reserved for future request/response schemas
-  services/             Authentication, scheduling, clinical, patient, billing, reporting, and audit logic
+  services/             Authentication, scheduling, clinical, patient, billing, reporting, licensing, and audit logic
   static/               CSS and future static assets
-  templates/            Login, patient, scheduling, visit, billing, reports, welcome, and shared shell
+  templates/            Login, patient, scheduling, visit, billing, reports, licensing, welcome, and shared shell
 alembic/
   env.py                Migration environment wired to DATABASE_URL
   versions/             Foundational, auth-security, patient, scheduling, clinical, lab, prescription, and billing migrations
@@ -102,6 +102,9 @@ The migrations create the following foundational and patient tables:
 - **Clinic** represents one tenant/customer and stores its name, branding
   reference, creation timestamp, extensible JSON settings, and the explicit
   `billing_module_enabled` opt-in flag, which defaults to `False`.
+- **License** stores one clinic-scoped local subscription record with
+  `status`, `expires_at`, `last_check_in_at`, and `grace_period_days`. It is the
+  current placeholder for a future license-server response.
 - **User** represents a staff account with a clinic, email, Argon2 password
   hash, full name, active status, creation timestamp, and exactly one of:
   `physician`, `nurse_ma`, `front_desk`, `billing_clerk`, or `clinic_admin`.
@@ -155,6 +158,50 @@ Argon2 and are never stored in plaintext. `/welcome` is protected by the
 authentication dependency and displays the signed-in user's name and role.
 `/logout` clears the session. The reusable `require_roles(...)` dependency is
 available for every future route that needs role-based access control.
+
+## Licensing
+
+Licensing is enforced server-side on every request, not only during login. The
+app-level request dependency reads the current clinic License row on every
+authenticated request. GET and other read-only requests remain available in
+all non-revoked license states. POST, PUT, PATCH, and DELETE requests are
+allowed while the license is active and return HTTP 423 with a clear
+read-only message after expiration or revocation.
+
+The local state rules are:
+
+- **Active:** `now <= expires_at`; all authorized reads and writes work.
+- **Grace:** after `expires_at` through
+  `expires_at + grace_period_days`; reads work and writes are blocked.
+- **Expired:** after the grace period; reads still work and writes are blocked.
+- **Revoked:** an administrative inactive state; reads work and writes are
+  blocked.
+
+The in-process scheduler starts with FastAPI and periodically runs a local
+check-in. Its interval is controlled by `LICENSE_CHECK_INTERVAL_SECONDS`
+(default: 300 seconds). It updates `last_check_in_at` and the derived status;
+it does not require a worker container, Redis, or another service.
+
+This is intentionally a portable placeholder. The isolated
+`perform_license_check_in` function in `app/services/licensing.py` is the
+single replacement point for a future remote license-server check-in call.
+The current implementation does not contact an external licensing service.
+Migration `0010_licensing` backfills existing clinics with a one-year local
+placeholder license. Older or test-created clinics without a row are lazily
+given the same safe local placeholder when the admin view is opened.
+
+Clinic administrators can view and manually configure the local record at
+`/admin/license`. The notification-bell link is visible to clinic
+administrators, and the page shows status, days remaining, expiration, grace
+period, and last check-in. The admin route remains writable during read-only
+enforcement so a renewal can recover the clinic.
+
+When the state changes during an open browser session, the shared shell shows a
+calm read-only banner. HTMX write responses use `HX-Reswap: none`, so the
+current form is not replaced. The visit note workspace additionally stores
+the submitted draft in browser `localStorage` before submission and restores it
+when the workspace is reopened. A failed save therefore does not discard an
+in-progress unsaved clinical note; the user can renew the license and retry.
 
 ## Patient Demographics
 
@@ -401,6 +448,16 @@ and audit history.
 `0009_billing` creates the PostgreSQL invoice-status enum, clinic fee schedule,
 soft-deletable invoices and charges, indexes, and starter prices for existing
 clinics. New clinics are lazily seeded on first enabled fee-schedule access.
+
+## Licensing schema sequencing
+
+`0010_licensing` creates the PostgreSQL `license_status` enum and one-to-one
+clinic License table, then backfills existing clinics with local placeholder
+licenses. Apply it with:
+
+```bash
+alembic upgrade head
+```
 
 ## Reporting
 

@@ -356,3 +356,45 @@ and the active-pregnancy report is a snapshot as of the selected end date.
       **Export Excel**; open both files and verify the title, date range, and
       detail rows match the hand-counted HTML report rather than only checking
       that a download occurred.
+
+## 2026-09-12 — Licensing and subscription enforcement
+
+Apply all migrations and start the documented FastAPI workflow before testing:
+
+```bash
+alembic upgrade head
+python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+```
+
+The local Licensing implementation is a placeholder for a future remote
+license-server check-in. Use `/admin/license` as a `clinic_admin` to set
+`expires_at`, `grace_period_days`, and the administrative state while testing.
+
+- [ ] Confirm `0010_licensing` creates one License row for the clinic and that
+      `/admin/license` shows status, days remaining, expiration, grace period,
+      and last check-in.
+- [ ] Set an expiration in the future. Confirm all existing authorized reads
+      and writes continue to work.
+- [ ] Set `expires_at` in the past but within `grace_period_days`. Confirm
+      authenticated users can still open patients, visits, schedules, reports,
+      and other read-only screens, while a direct POST/PUT/PATCH/DELETE request
+      returns HTTP 423 with the clear read-only message.
+- [ ] Set `expires_at` past the full grace period. Confirm reads still work and
+      writes remain blocked. Confirm this works in an already-open browser
+      session without logging in again.
+- [ ] Submit an HTMX write while read-only. Confirm the response includes
+      `HX-Reswap: none`, the page shows the calm read-only banner, and the
+      submitted form is not replaced.
+- [ ] Open a new or existing Visit Documentation note, enter unsaved HPI,
+      assessment, and plan content, then force the license into read-only mode
+      before submitting. Confirm the browser preserves the draft in the
+      workspace/local storage, the note is not partially saved, and the content
+      can be retried after renewal.
+- [ ] As `clinic_admin`, renew the license from `/admin/license` while the
+      clinic is read-only. Confirm the next write succeeds without restarting
+      the app and the banner clears on the next page load.
+- [ ] Sign in as a non-admin and confirm the license status/edit page returns
+      HTTP 403 while the read-only banner still appears for all roles.
+- [ ] Leave the app running for one scheduler interval or temporarily lower
+      `LICENSE_CHECK_INTERVAL_SECONDS`; confirm `last_check_in_at` and the
+      derived status update without a separate worker container.

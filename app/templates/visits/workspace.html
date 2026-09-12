@@ -58,7 +58,7 @@
           {% endif %}
         </div>
 
-        <form class="mt-6 space-y-7" method="post" action="{{ form_action }}">
+        <form id="visit-note-form" class="mt-6 space-y-7" method="post" action="{{ form_action }}" data-draft-key="{% if visit %}visit-{{ visit.id }}{% else %}patient-{{ patient.id }}{% endif %}">
           {% if not visit %}
             <input type="hidden" name="patient_id" value="{{ patient.id }}" />
           {% endif %}
@@ -396,5 +396,39 @@
       if (episode) episode.style.display = type === "prenatal" ? "block" : "none";
     }
     toggleVisitSections();
+
+    (function preserveVisitDraft() {
+      const form = document.getElementById("visit-note-form");
+      if (!form) return;
+      const key = "obgyn-visit-draft:" + form.dataset.draftKey;
+      const saved = {{ "true" if saved else "false" }};
+      if (saved) {
+        localStorage.removeItem(key);
+        localStorage.removeItem("obgyn-visit-draft:patient-{{ patient.id }}");
+        return;
+      }
+      try {
+        const draft = JSON.parse(localStorage.getItem(key) || "null");
+        if (draft) {
+          for (const [name, value] of Object.entries(draft)) {
+            const fields = form.querySelectorAll(`[name="${CSS.escape(name)}"]`);
+            fields.forEach((field) => {
+              if (field.type === "checkbox") field.checked = Array.isArray(value) ? value.includes(field.value) : value === field.value;
+              else field.value = Array.isArray(value) ? value[value.length - 1] : value;
+            });
+          }
+        }
+      } catch (error) {
+        console.warn("Could not restore the visit draft.", error);
+      }
+      form.addEventListener("submit", function () {
+        const draft = {};
+        for (const [name, value] of new FormData(form).entries()) {
+          if (draft[name] === undefined) draft[name] = value;
+          else draft[name] = Array.isArray(draft[name]) ? [...draft[name], value] : [draft[name], value];
+        }
+        localStorage.setItem(key, JSON.stringify(draft));
+      });
+    })();
   </script>
 {% endblock %}
