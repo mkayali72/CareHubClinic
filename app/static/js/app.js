@@ -84,6 +84,7 @@
     if (!menu || !backdrop) return;
     backdrop.hidden = false;
     menu.dataset.open = "true";
+    menu.inert = false;
     menu.setAttribute("aria-hidden", "false");
     backdrop.dataset.open = "true";
     body.classList.add("menu-open");
@@ -94,6 +95,7 @@
   function closeMenu() {
     if (!menu || !backdrop) return;
     menu.dataset.open = "false";
+    menu.inert = true;
     menu.setAttribute("aria-hidden", "true");
     backdrop.dataset.open = "false";
     body.classList.remove("menu-open");
@@ -104,6 +106,7 @@
     menuButton?.focus();
   }
 
+  if (menu) menu.inert = true;
   applyTheme(preference("obgyn-theme", root.dataset.theme || "light"));
   applyFontSize(preference("obgyn-font-size", root.dataset.fontSize || "normal"));
   applyContrast(preference("obgyn-contrast", root.dataset.contrast || "standard"));
@@ -128,7 +131,28 @@
   backdrop?.addEventListener("click", closeMenu);
   menu?.querySelectorAll("a").forEach((link) => link.addEventListener("click", closeMenu));
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && menu?.dataset.open === "true") closeMenu();
+    if (event.key === "Escape" && menu?.dataset.open === "true") {
+      closeMenu();
+      return;
+    }
+    const dialog = document.querySelector(".mobile-slide-over[role='dialog']");
+    if (event.key === "Escape" && dialog) {
+      dialog.querySelector("button[aria-label='Close'], button")?.click();
+      return;
+    }
+    if (event.key !== "Tab" || menu?.dataset.open !== "true") return;
+    const focusable = [...menu.querySelectorAll("a, button, input, select, textarea, [tabindex]:not([tabindex='-1'])")]
+      .filter((element) => !element.hasAttribute("disabled"));
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   });
 
   document.body.addEventListener("htmx:beforeRequest", (event) => {

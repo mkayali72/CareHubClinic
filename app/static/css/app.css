@@ -100,6 +100,7 @@ textarea:focus-visible {
   box-shadow: 20px 0 48px rgb(15 23 42 / 18%);
   transform: translateX(-105%);
   transition: transform 180ms ease;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .mobile-sidebar[data-open="true"] {
@@ -129,7 +130,10 @@ textarea:focus-visible {
     width: 100% !important;
     max-width: none !important;
     border: 0 !important;
-    padding: 1rem !important;
+    padding-top: max(1rem, env(safe-area-inset-top)) !important;
+    padding-right: max(1rem, env(safe-area-inset-right)) !important;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom)) !important;
+    padding-left: max(1rem, env(safe-area-inset-left)) !important;
   }
 
   .utility-controls {
@@ -165,8 +169,26 @@ html[data-theme="dark"] .login-page {
 }
 
 html[data-theme="dark"] .bg-slate-50,
-html[data-theme="dark"] [class*="bg-slate-50"] {
+html[data-theme="dark"] [class*="bg-slate-50"],
+html[data-theme="dark"] [class*="bg-slate-100"] {
   background-color: var(--app-muted-surface) !important;
+}
+
+html[data-theme="dark"] [class*="bg-indigo-100"],
+html[data-theme="dark"] [class*="bg-indigo-200"] {
+  background-color: #312e81 !important;
+}
+
+html[data-theme="dark"] [class*="bg-emerald-100"] {
+  background-color: #064e3b !important;
+}
+
+html[data-theme="dark"] [class*="bg-amber-100"] {
+  background-color: #78350f !important;
+}
+
+html[data-theme="dark"] [class*="bg-rose-100"] {
+  background-color: #881337 !important;
 }
 
 html[data-theme="dark"] [class*="bg-indigo-50"] {

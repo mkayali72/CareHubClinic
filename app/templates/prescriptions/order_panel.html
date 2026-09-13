@@ -5,7 +5,7 @@
        <h3 id="prescription-order-panel-title" class="mt-1 text-2xl font-semibold text-slate-950">Prescribe for this visit</h3>
       <p class="mt-1 text-sm text-slate-500">The prescription will be linked to {{ visit.patient.name }} and visit #{{ visit.id }}.</p>
     </div>
-     <button class="touch-target rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-600 hover:bg-slate-50" type="button" onclick="document.getElementById('prescription-order-panel').innerHTML = ''">Close</button>
+      <button class="touch-target rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-600 hover:bg-slate-50" type="button" aria-label="Close prescription panel" onclick="document.getElementById('prescription-order-panel').innerHTML = ''">Close</button>
   </div>
 
   {% if message %}<div class="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{{ message }}</div>{% endif %}

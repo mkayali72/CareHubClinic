@@ -533,7 +533,8 @@ The shared Jinja shell is responsive without adding a frontend build system:
   inside a horizontal scroll container so no appointment columns are clipped.
 - **Below 640px (`sm`)** lab, prescription, and billing slide-over panels become
   full-screen modal surfaces. At larger widths they remain right-side panels
-  capped at 36rem.
+  capped at 36rem. Phone panels include safe-area padding for notches and home
+  indicators, and Escape dismisses an open panel.
 - Shared controls and form fields use approximately 44px minimum touch targets.
   Tables retain an intentional horizontal scroll region where a dense tabular
   layout is more useful than hiding columns.
