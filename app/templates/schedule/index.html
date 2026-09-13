@@ -34,6 +34,17 @@
       </section>
 
       <div class="space-y-6">
+        {% if follow_up_recommendation %}
+          <section class="rounded-3xl border border-emerald-200 bg-emerald-50 p-6">
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Clinical scheduling cue</p>
+            <h3 class="mt-1 text-xl font-semibold text-emerald-950">Suggested prenatal follow-up</h3>
+            <p class="mt-3 text-sm leading-6 text-emerald-900">
+              Based on the current gestational age ({{ follow_up_recommendation.gestational_age.display }}),
+              schedule the next prenatal visit in <strong>{{ follow_up_recommendation.interval_label }}</strong>.
+            </p>
+            <p class="mt-2 text-xs font-medium text-emerald-800">Suggested date: {{ follow_up_recommendation.suggested_date }}</p>
+          </section>
+        {% endif %}
         {% if can_create %}
           <section class="rounded-3xl border border-indigo-100 bg-indigo-50/60 p-6">
             <p class="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">Existing patient</p>
@@ -44,7 +55,7 @@
                 <label class="block text-sm font-medium text-slate-700">Patient
                   <select class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" name="patient_id" required>
                     <option value="">Select patient</option>
-                    {% for patient in patients %}<option value="{{ patient.id }}">{{ patient.name }} · {{ patient.date_of_birth.strftime("%b %-d, %Y") }}</option>{% endfor %}
+                  {% for patient in patients %}<option value="{{ patient.id }}" {% if selected_patient_id == patient.id %}selected{% endif %}>{{ patient.name }} · {{ patient.date_of_birth.strftime("%b %-d, %Y") }}</option>{% endfor %}
                   </select>
                 </label>
                 <label class="block text-sm font-medium text-slate-700">Physician

@@ -5,13 +5,22 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
-from app.models import Appointment, AppointmentType, User, UserRole
+from app.models import (
+    Appointment,
+    AppointmentType,
+    PregnancyEpisode,
+    PregnancyEpisodeStatus,
+    User,
+    UserRole,
+    Visit,
+)
 from app.services.auth import require_roles
+from app.services.clinical import CLINICAL_ROLES, prenatal_follow_up_recommendation
 from app.services.scheduling import (
     APPOINTMENT_TYPE_ADMIN_ROLES,
     SCHEDULING_ROLES,
@@ -77,11 +86,35 @@ def _queue_doctor_id(user: User) -> int | None:
     return user.id if user.role is UserRole.PHYSICIAN else None
 
 
+def _queue_visit_ids(
+    db: Session,
+    user: User,
+    selected_date: date,
+    appointments: list[Appointment],
+) -> dict[int, int]:
+    """Map queued patients to the latest active visit documented that day."""
+
+    patient_ids = {appointment.patient_id for appointment in appointments}
+    if not patient_ids:
+        return {}
+    rows = db.execute(
+        select(Visit.patient_id, func.max(Visit.id))
+        .where(
+            Visit.clinic_id == user.clinic_id,
+            Visit.patient_id.in_(patient_ids),
+            Visit.visit_date == selected_date,
+        )
+        .group_by(Visit.patient_id)
+    )
+    return {patient_id: visit_id for patient_id, visit_id in rows}
+
+
 def _schedule_context(
     request: Request,
     db: Session,
     user: User,
     selected_date: date,
+    patient_id: int | None = None,
 ) -> dict[str, Any]:
     """Build shared calendar and queue context for one clinic date."""
 
@@ -98,6 +131,22 @@ def _schedule_context(
         doctor_id=_queue_doctor_id(user),
     )
     queue_appointments = appointments
+    follow_up_recommendation = None
+    if patient_id is not None and user.role in CLINICAL_ROLES:
+        episode = db.scalar(
+            select(PregnancyEpisode)
+            .where(
+                PregnancyEpisode.clinic_id == user.clinic_id,
+                PregnancyEpisode.patient_id == patient_id,
+                PregnancyEpisode.status == PregnancyEpisodeStatus.ACTIVE,
+            )
+            .order_by(PregnancyEpisode.created_at.desc(), PregnancyEpisode.id.desc())
+        )
+        if episode is not None:
+            follow_up_recommendation = prenatal_follow_up_recommendation(
+                episode,
+                selected_date,
+            )
     return {
         "request": request,
         "app_name": settings.app_name,
@@ -109,10 +158,18 @@ def _schedule_context(
         "doctors": calendar_doctors,
         "calendar_columns": calendar_columns(calendar_doctors, appointments),
         "queue_appointments": queue_appointments,
+        "queue_visit_ids": _queue_visit_ids(
+            db,
+            user,
+            selected_date,
+            queue_appointments,
+        ),
         "patients": get_schedulable_patients(db, user.clinic_id),
         "appointment_types": get_appointment_types(db, user.clinic_id),
         "can_create": user.role in SCHEDULING_WRITE_ROLES,
         "can_manage_types": user.role in APPOINTMENT_TYPE_ADMIN_ROLES,
+        "selected_patient_id": patient_id,
+        "follow_up_recommendation": follow_up_recommendation,
     }
 
 
@@ -139,6 +196,7 @@ def _queue_context(
         "previous_date": selected_date.fromordinal(selected_date.toordinal() - 1),
         "next_date": selected_date.fromordinal(selected_date.toordinal() + 1),
         "queue_appointments": appointments,
+        "queue_visit_ids": _queue_visit_ids(db, user, selected_date, appointments),
         "doctors": get_physicians(db, user.clinic_id),
         "appointment_types": get_appointment_types(db, user.clinic_id),
         "can_create": user.role in SCHEDULING_WRITE_ROLES,
@@ -160,6 +218,7 @@ def _type_panel_context(request: Request, db: Session, user: User) -> dict[str, 
 def schedule_page(
     request: Request,
     selected_date: str | None = Query(default=None, alias="date"),
+    patient_id: int | None = Query(default=None),
     current_user: User = Depends(require_roles(*SCHEDULING_ROLES)),
     db: Session = Depends(get_db),
 ) -> Response:
@@ -173,6 +232,7 @@ def schedule_page(
             db,
             current_user,
             parse_selected_date(selected_date),
+            patient_id,
         ),
     )
 

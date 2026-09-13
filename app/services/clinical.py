@@ -121,6 +121,36 @@ def gestational_age(
     }
 
 
+def prenatal_follow_up_recommendation(
+    episode: PregnancyEpisode,
+    on_date: date | None = None,
+) -> dict[str, Any]:
+    """Return the routine prenatal follow-up interval for the current dating.
+
+    The cadence follows the clinic's lightweight prenatal workflow:
+    every four weeks before 28 weeks, every two weeks from 28 through 35
+    weeks, and weekly from 36 weeks onward.
+    """
+
+    age = gestational_age(episode, on_date)
+    if age["weeks"] < 28:
+        interval_weeks = 4
+    elif age["weeks"] < 36:
+        interval_weeks = 2
+    else:
+        interval_weeks = 1
+    return {
+        "interval_weeks": interval_weeks,
+        "interval_label": (
+            f"{interval_weeks} week" if interval_weeks == 1 else f"{interval_weeks} weeks"
+        ),
+        "suggested_date": (
+            (on_date or date.today()) + timedelta(weeks=interval_weeks)
+        ).isoformat(),
+        "gestational_age": age,
+    }
+
+
 def _aware_utc(value: datetime) -> datetime:
     """Normalize a database timestamp to an aware UTC timestamp."""
 

@@ -190,6 +190,20 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
       refresh the other; confirm persisted data appears. The app intentionally
       uses refresh/htmx requests rather than server-pushed realtime updates.
 
+## Route-level acceptance workflows
+
+- [x] Run `python -m pytest -q tests/test_end_to_end_workflows.py` and confirm
+      the New OB patient-day flow works through HTTP routes: front desk
+      registration, New OB scheduling and check-in, nurse/M.A. episode and
+      vitals intake, physician queue-to-visit opening, prenatal note save,
+      New OB Panel ordering, prenatal-vitamin safety handling, next-action
+      prompt, gestational-age follow-up cue, front-desk follow-up booking, and
+      billing checkout. Confirm a billing clerk cannot view the clinical note.
+- [x] In the same route-level suite, confirm clinic admin correction of a
+      duplicate: soft-delete one patient, verify the deleted row is absent from
+      every active role view, retain it for recovery, and verify the delete
+      AuditLog actor, entity, and action.
+
 ## 2026-09-12 — Lab Orders
 
 Apply all migrations and start the documented FastAPI workflow before testing:

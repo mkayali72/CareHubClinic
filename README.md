@@ -333,7 +333,12 @@ dependency. Gyn annual visits do not show prenatal screening prompts.
 
 After a visit saves, the screen offers three next actions: schedule a follow-up,
 mark done, or skip. Schedule follow-up returns to the scheduling workspace with
-the patient selected.
+the patient selected. For an active prenatal episode, the clinical scheduling
+cue recommends every four weeks before 28 weeks, every two weeks from 28
+through 35 weeks, and weekly from 36 weeks onward. Physicians and nurses can
+review the cue; front desk or clinic admin staff complete the appointment
+booking. When intake has already created a visit for the queue date, the
+clinical queue opens that saved visit directly.
 
 ## Lab Orders
 

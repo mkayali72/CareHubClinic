@@ -336,3 +336,10 @@ Test 98: MANUAL — Open lab-order and prescription panels on real iOS Safari an
 Test 99: MANUAL — Verify one-handed hamburger navigation and touch-target usability on real iOS Safari and Android Chrome devices; see `TESTING.md`, Prompt 13.T, Test 99.1–99.3.
 Test 100: PASS — Automated `tests/test_responsive.py::test_100_theme_controls_and_dark_mode_contract_span_shared_pages` checks dark-mode CSS selectors, JavaScript toggle/localStorage behavior, and shared controls across welcome, patients, patient detail, schedule, reports, labs, prescriptions, and licensing pages.
 Test 101: PASS — Automated `tests/test_responsive.py::test_101_dropped_first_response_retry_does_not_duplicate_appointment` simulates a committed appointment whose first response is dropped, retries the same client request ID, verifies exactly one appointment exists, and checks loading/error-state hooks and copy.
+
+## 2026-09-13 — End-to-end clinic workflows
+
+Test 102: PASS — `tests/test_end_to_end_workflows.py::test_new_ob_patient_day_through_browser_routes` exercised the New OB patient-day flow through registration, scheduling, check-in, nurse/M.A. intake, physician queue-to-visit opening, prenatal note save, New OB Panel ordering, prenatal-vitamin safety behavior, next-action follow-up handoff, gestational-age interval suggestion, front-desk follow-up booking, billing checkout, and billing-clerk note isolation.
+Test 103: PASS — `tests/test_end_to_end_workflows.py::test_clinic_admin_corrects_duplicate_patient_through_delete_route` exercised duplicate correction through the patient delete route and confirmed active-view hiding, retained soft-deleted data, and the actor/entity/action delete audit event.
+Test 104: PASS — Queue links now open the latest active visit documented for the selected queue date when one exists; otherwise they retain the patient-workspace link for starting a new note.
+Test 105: PASS — Prenatal follow-up recommendations use 4 weeks before 28 weeks, 2 weeks from 28 through 35 weeks, and 1 week from 36 weeks onward; booking remains restricted to scheduling-write roles.
