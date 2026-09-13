@@ -3,19 +3,24 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    env_file:
+      - .env
     environment:
       APP_NAME: ${APP_NAME:-OB/GYN Clinic}
       APP_ENV: ${APP_ENV:-development}
-      PORT: 8000
+      PORT: ${PORT:-8000}
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-clinic}:${POSTGRES_PASSWORD:-clinic}@db:5432/${POSTGRES_DB:-obgyn}
+      LAB_UPLOAD_DIR: ${LAB_UPLOAD_DIR:-var/lab_results}
     ports:
-      - "8000:8000"
+      - "${PORT:-8000}:${PORT:-8000}"
     depends_on:
       db:
         condition: service_healthy
 
   db:
     image: postgres:17-alpine
+    env_file:
+      - .env
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-obgyn}
       POSTGRES_USER: ${POSTGRES_USER:-clinic}

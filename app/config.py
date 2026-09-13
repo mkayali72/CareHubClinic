@@ -1,7 +1,7 @@
 """Environment-backed application configuration.
 
 The module intentionally reads ordinary environment variables so the same
-application configuration works in Replit, Docker Compose, and a local shell.
+application configuration works in Docker Compose and a local shell.
 """
 
 from dataclasses import dataclass

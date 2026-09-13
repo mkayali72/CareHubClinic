@@ -1,0 +1,36 @@
+This app now needs to be fully exportable and runnable with ZERO dependency on
+Replit, on a developer's own MacOS or Windows machine using Docker Desktop only.
+
+Please do a dedicated audit and cleanup pass:
+
+1. Search the entire codebase for anything Replit-specific: Replit-only
+   environment variables, Replit DB usage, Replit auth integrations, hardcoded
+   Replit URLs/hostnames, or any import that only resolves inside Replit's
+   environment. Remove or replace every instance with a standard, portable
+   equivalent.
+2. Confirm the Dockerfile for the "app" service builds a working image using only
+   standard Python/pip (or poetry, whichever we're using) — no Replit-specific
+   base images or build steps.
+3. Confirm docker-compose.yml at the repo root correctly defines exactly two
+   services — "app" and "db" (Postgres) — with proper environment variable wiring
+   from a .env file, a named volume for Postgres data persistence, and correct
+   inter-service networking (the app connecting to the db service by its
+   docker-compose service name, not localhost).
+4. Create a .env.example file listing every required environment variable with a
+   placeholder/example value and a comment explaining what it's for.
+5. Update README.md with a clear, step-by-step "Run Locally with Docker Desktop"
+   section: clone the repo, copy .env.example to .env and fill in values, run
+   `docker compose up`, confirm the app is reachable at localhost on the expected
+   port — written for someone who has never touched Replit and never will.
+6. Create a .gitignore appropriate for this stack (Python cache files, .env,
+   local data volumes, editor files, etc.) so the repo is clean when pushed to
+   GitHub.
+7. Do a final full test: if possible, verify the docker-compose setup actually
+   starts successfully in this environment as a sanity check of the Dockerfile
+   and compose config, even though full end-to-end verification will happen once
+   I pull it down locally myself.
+
+Update CHANGELOG.md noting this export-readiness milestone. This is the last step
+before I pull this repo down to my own machine, so be thorough — a mistake here
+means the app doesn't run at all outside Replit, which defeats the whole point of
+this architecture.

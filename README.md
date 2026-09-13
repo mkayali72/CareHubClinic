@@ -19,8 +19,8 @@ This repository contains the portable foundation for a web application that
   dependencies
 
 The stack is deliberately minimal. There is no separate frontend build system,
-Redis instance, worker, reverse proxy, or Replit-only dependency. Future
-background jobs can run as in-process scheduled tasks inside FastAPI.
+Redis instance, worker, or reverse proxy. Future background jobs can run as
+in-process scheduled tasks inside FastAPI.
 
 ## Project structure
 
@@ -45,51 +45,63 @@ requirements-dev.txt    Test dependencies for pytest and FastAPI TestClient
 tests/                  Isolated automated foundation tests
 ```
 
-## Run in Replit
+## Run Locally with Docker Desktop
 
-The development preview runs the same FastAPI application used by Docker:
+Docker Desktop is the supported portable runtime. The Compose project contains
+exactly two services: `app` and `db`. The app container runs database migrations
+before starting FastAPI, and PostgreSQL data is stored in the named
+`postgres_data` volume.
+
+1. Clone the repository and enter it:
+
+   ```bash
+   git clone <repository-url> obgyn-clinic
+   cd obgyn-clinic
+   ```
+
+2. Create the local environment file:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+3. Open `.env` and replace `SESSION_SECRET` with a long random value. Adjust
+   the PostgreSQL username, password, or database name only if needed. Keep
+   `DATABASE_URL` pointed at the Compose service name `db`.
+
+4. Build and start both services:
+
+   ```bash
+   docker compose up --build
+   ```
+
+5. In a second terminal, confirm the app and database are healthy:
+
+   ```bash
+   curl http://localhost:8000/health
+   ```
+
+   Expected response:
+
+   ```json
+   {"status":"ok","database":"ok"}
+   ```
+
+6. Open `http://localhost:8000/login` in a browser. Stop the stack with
+   `Ctrl+C`, or run `docker compose down`. The named database volume remains
+   until it is explicitly removed with `docker compose down -v`.
+
+To run the Python tests on the host, install the development requirements and
+point `DATABASE_URL` at a PostgreSQL instance reachable from the host:
 
 ```bash
-python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+python -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt
+.venv/bin/python -m pytest -q
 ```
 
-Set `DATABASE_URL` to a PostgreSQL connection string in the environment before
-expecting `/health` to report a healthy database. The application does not
-depend on Replit-specific authentication, storage, database APIs, or secret
-mechanisms.
-
-Open the root page to see the empty sidebar layout:
-
-```text
-/
-```
-
-The health endpoint runs `SELECT 1` against PostgreSQL:
-
-```text
-/health
-```
-
-It returns HTTP 200 with `{"status":"ok","database":"ok"}` when the database is
-reachable and HTTP 503 with a safe degraded response when it is not.
-
-## Run with Docker Desktop
-
-Copy the example environment file and adjust values if needed:
-
-```bash
-cp .env.example .env
-docker compose up --build
-```
-
-The app will be available at `http://localhost:8000` and PostgreSQL will be
-available at `localhost:5432`. The Compose file passes the internal database
-hostname `db` to the app, so the application container can connect without
-any host-specific configuration.
-
-The only required application setting is `DATABASE_URL`. In Docker Compose it
-is assembled from the `POSTGRES_*` variables. For a local process outside
-Docker, use a URL such as:
+For a host process outside Docker, use a database URL with `localhost` instead
+of `db`, for example:
 
 ```text
 postgresql+psycopg://clinic:clinic@localhost:5432/obgyn

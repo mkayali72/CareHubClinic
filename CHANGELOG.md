@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-13 — Portable Docker Desktop export
+
+- Added a standard Docker entrypoint that applies Alembic migrations before
+  starting the FastAPI app.
+- Wired the Compose `app` and `db` services to `.env`, the `db` service hostname,
+  a persistent named PostgreSQL volume, and the configurable application port.
+- Hardened the app image to run as a non-root user and persist private lab
+  uploads under the configured application data directory.
+- Added the complete Docker Desktop setup walkthrough and expanded local
+  environment and runtime ignore rules.
+
 ## 2026-09-13
 
 - Added route-level acceptance coverage for the complete New OB patient-day
