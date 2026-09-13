@@ -5,3 +5,4 @@
 - [Licensing enforcement](licensing-enforcement.md) — evaluate license state per request; keep renewal recovery and the future remote check-in seam isolated.
 - [Lab upload security](lab-upload-security.md) — use generated basenames and directory-descriptor operations for private clinical files.
 - [Alembic revision length](alembic-revision-length.md) — keep migration revision identifiers within the database version column's 32-character limit.
+- [Docker Compose validation](docker-compose-validation.md) — a local OCI healthcheck exec failure can differ from actual database/app readiness.
