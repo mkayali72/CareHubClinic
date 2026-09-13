@@ -1,5 +1,37 @@
 # Automated Test Results
 
+## Final export-readiness rollup — Prompt 14.T
+
+- **Automated cases executed:** 161 total — **161 PASS, 0 FAIL**
+  - Prompt 3.T–13.T cross-module regression: 159 PASS
+  - Prompt 14.T end-to-end workflows: 2 PASS
+- **Manual/deployment checks still open:** 7 — Tests 34, 35, 43, 44, 97, 98,
+  99. These are infrastructure, organizational data-handling, or real-device
+  checks and are not application-test failures.
+
+| Module / section | Automated PASS | FAIL | MANUAL |
+| --- | ---: | ---: | ---: |
+| Prompt 3.T — Foundation | 17 | 0 | 0 |
+| Prompt 4.T — Patient demographics | 24 | 0 | 0 |
+| Prompt 5.T — Scheduling | 12 | 0 | 0 |
+| Prompt 6.T — Clinical documentation | 29 | 0 | 0 |
+| Prompt 7.T — Lab orders | 15 | 0 | 0 |
+| Prompt 8.T — Prescriptions | 11 | 0 | 0 |
+| Prompt 9.T — Billing | 11 | 0 | 0 |
+| Prompt 10.T — Reporting | 10 | 0 | 0 |
+| Prompt 11.T — Licensing | 14 | 0 | 0 |
+| Prompt 12.T — Security hardening | 14 | 0 | 4 |
+| Prompt 13.T — Mobile/responsive | 2 | 0 | 3 |
+| Prompt 14.T — Cross-module end-to-end | 2 | 0 | 0 |
+| **Total** | **161** | **0** | **7** |
+
+**MANUAL items requiring completion before export:** Test 34 — verify database
+encryption at rest and encrypted backups with the chosen hosting provider; Test
+35 — verify HTTPS redirect/rejection at the production TLS boundary; Tests 43
+and 44 — verify BAA/vendor coverage and that non-production environments
+contain no real PHI; Tests 97–99 — exercise visit notes, clinical slide-over
+modals, and touch navigation on real iOS Safari and Android Chrome devices.
+
 This file is the append-only, authoritative history of every automated test
 run throughout the build. Starting with the next test prompt, append a dated
 section for each test batch. Name the build prompt it covers, then record one
@@ -343,3 +375,150 @@ Test 102: PASS — `tests/test_end_to_end_workflows.py::test_new_ob_patient_day_
 Test 103: PASS — `tests/test_end_to_end_workflows.py::test_clinic_admin_corrects_duplicate_patient_through_delete_route` exercised duplicate correction through the patient delete route and confirmed active-view hiding, retained soft-deleted data, and the actor/entity/action delete audit event.
 Test 104: PASS — Queue links now open the latest active visit documented for the selected queue date when one exists; otherwise they retain the patient-workspace link for starting a new note.
 Test 105: PASS — Prenatal follow-up recommendations use 4 weeks before 28 weeks, 2 weeks from 28 through 35 weeks, and 1 week from 36 weeks onward; booking remains restricted to scheduling-write roles.
+
+## Prompt 14.T — Cross-Module End-to-End
+
+QA plan reference: `04-qa-test-plan.md` is not present in the workspace; this
+regression ledger follows the numbered cases recorded in the prior Prompt
+3.T–13.T results and the requested Prompt 14.T cases.
+
+### Prompt 3.T — Foundation regression
+
+Test 1: PASS — All five allowed roles logged in through the authenticated HTTP route.
+Test 2: PASS — Authenticated-only and clinic-admin-only access controls rejected anonymous and unauthorized roles.
+Test 8: PASS — Expired inactive sessions were rejected.
+Test 9: PASS — Logout invalidated the prior session cookie.
+Test 10: PASS — Weak passwords were rejected and repeated failed logins locked the account.
+Test 12: PASS — Immediate role changes affected authorization.
+Test 13: PASS — Unassigned roles failed closed without elevated access.
+Test 14: PASS — Soft deletion retained the row with deletion metadata.
+Test 15: PASS — Soft-deleted rows were excluded from default queries.
+Test 16: PASS — Soft deletion created the correct audit event.
+Test 19: PASS — No hard-delete path for soft-deletable models was found.
+Test 20: PASS — Create, update, and delete operations wrote the expected audit events.
+Test 21: PASS — Audit logs remained immutable for every role.
+
+### Prompt 4.T — Patient demographics regression
+
+Test 3: PASS — Front-desk projections excluded clinical fields.
+Test 5: PASS — Billing projections exposed permitted demographics and excluded sensitive clinical fields.
+Test 6: PASS — Clinical and operational staff could view active patients within their clinic according to the access design.
+Test 7: PASS — Patient CRUD routes matched the role permission matrix.
+Test 17: PASS — Soft-deleted patients disappeared from active views for every role and restored with data intact.
+Test 18: PASS — Patient deletion retained linked state and audit history without orphaned records.
+Test 58: PASS — Missing required patient fields returned clear validation errors without incomplete records.
+Test 59: PASS — Similar patients followed the documented duplicate behavior without silent data loss.
+Test 60: PASS — Structured allergies, medications, and contraception saved and reloaded correctly.
+
+### Prompt 5.T — Scheduling regression
+
+Test 50: PASS — Appointment types supported create, edit, and cancel while preserving identity and final status.
+Test 51: PASS — Overlapping appointments followed the documented current policy.
+Test 52: PASS — Walk-in creation persisted patient and checked-in appointment data atomically.
+Test 53: PASS — Queue status transitions were ordered, audited, and visible to another authenticated viewer.
+
+### Prompt 6.T — Clinical documentation regression
+
+Test 63: PASS — All four visit types persisted their correct structured field sets.
+Test 64: PASS — Gestational-age and corrected-EDD calculations were correct at the tested points.
+Test 65: PASS — Structured ultrasound fields saved and reloaded correctly.
+Test 66: PASS — Pregnancy trends included all visits in visit-date order.
+Test 67: PASS — Gestational-age reminders triggered only at the correct points and not for gyn-annual visits.
+Test 68: PASS — Reminder dismissal remained a UI dismissal and did not claim screening completion.
+Test 69: PASS — Separate pregnancy episodes kept their visit histories isolated.
+Test 70: PASS — Delivery outcomes remained linked to the correct pregnancy episode and history.
+Test 71: PASS — Invalid ICD-10 codes were rejected and valid diagnoses saved.
+Test 72: PASS — Shared phrase templates were snapshotted into notes.
+Test 73: PASS — Locked visits rejected direct field edits.
+Test 74: PASS — Amendments preserved the original note and recorded attribution.
+Test 75: PASS — All supported procedure types linked to the correct visit.
+Test 76: PASS — Partial notes preserved the fields that had already been entered.
+
+### Prompt 7.T — Lab orders regression
+
+Test 39: PASS — Lab upload type, signature, size, private-storage, and role-access checks passed.
+Test 40: PASS — SQL-injection and XSS payloads remained data and rendered escaped across the tested text fields.
+Test 77: PASS — Individual and New OB Panel orders linked to the correct visit and patient.
+Test 78: PASS — Inline lab ordering returned a scoped fragment without resetting the note.
+Test 79: PASS — Manual, file, and combined lab results persisted correctly.
+Test 80: PASS — Uploaded result bytes remained stable after delay and re-query.
+Test 81: PASS — Result review metadata and status transitioned correctly.
+Test 82: PASS — Pending Labs reflected result creation immediately.
+
+### Prompt 8.T — Prescriptions regression
+
+Test 83: PASS — Inline prescription creation linked the prescription to visit, patient, and medication.
+Test 84: PASS — Unsafe or unknown pregnancy classifications required acknowledgment while non-pregnant patients did not receive a pregnancy warning.
+Test 85: PASS — Allergy conflicts required acknowledgment and non-conflicting vitamins remained confirmable.
+Test 86: PASS — Printed prescriptions contained branding, patient, medication, dosage, duration, and prescriber information.
+Test 87: PASS — Patient medication projections updated after soft discontinuation while retaining the record.
+
+### Prompt 9.T — Billing regression
+
+Test 45: PASS — Disabled Billing returned disabled/not-found responses and hid Billing UI surfaces.
+Test 46: PASS — Disabled Billing exposed no financial reports.
+Test 47: PASS — Enabling Billing took effect immediately without changing patient or visit data.
+Test 48: PASS — Existing invoice and charge history survived disabling and re-enabling Billing.
+Test 49: PASS — Billing clerks received a graceful disabled-module response.
+Test 88: PASS — Charges used the selected clinic fee schedule amount.
+Test 89: PASS — Paid invoice state persisted and appeared in the ledger.
+Test 90: PASS — Printed invoices contained branding, context, itemization, amount, and status.
+Test 91: PASS — Fee schedule changes were not retroactive to existing invoices.
+
+### Prompt 10.T — Reporting regression
+
+Test 92: PASS — Schedule, revenue, no-show, screening, pregnancy, and delivery reports returned exact seeded values.
+Test 93: PASS — Report date boundaries included the documented endpoints and excluded neighboring records.
+Test 94: PASS — PDF and Excel exports matched the report rows.
+Test 95: PASS — Front desk could not access financial report data or exports.
+Test 96: PASS — Soft-deleted appointments were excluded from report counts while retained in storage.
+
+### Prompt 11.T — Licensing regression
+
+Test 26: PASS — Active licenses allowed representative reads and writes across all enabled modules.
+Test 27: PASS — Grace-period licenses allowed reads and blocked writes with the documented read-only response.
+Test 28: PASS — License expiry and grace boundaries evaluated at the exact tested timestamps.
+Test 29: PASS — Clinic-admin renewal restored writes without an app restart.
+Test 30: PASS — Visit drafts remained available while transitioned saves were blocked.
+Test 31: PASS — License page days-remaining and expiry values matched the database before and after renewal.
+Test 32: PASS — Stale client license claims could not bypass server-side write enforcement.
+Test 33: PASS — Physician creation followed the current contract because no seat-count rule is implemented.
+
+### Prompt 12.T — Security hardening regression
+
+Test 34: MANUAL — Database encryption at rest and encrypted backups require verification from the selected hosting provider.
+
+The application-level suite cannot verify storage-provider encryption or backup
+encryption.
+
+Test 35: MANUAL — Production HTTPS redirect/rejection requires verification at the deployment TLS boundary; local development intentionally serves HTTP.
+
+Test 36: PASS — Error responses and captured logs excluded passwords, session tokens, and PHI-like values.
+Test 37: PASS — Rendered route URLs, query strings, links, and form actions excluded PHI.
+Test 38: PASS — Production-configured 500 responses excluded tracebacks and internal paths.
+Test 39: PASS — File-upload validation continued to reject disallowed, malformed, and oversized files.
+Test 40: PASS — Comprehensive injection and XSS coverage passed across patient, scheduling, clinical, labs, prescriptions, and billing text.
+Test 41: PASS — State-changing requests without a valid CSRF token were rejected.
+Test 42: PASS — Repeated failed logins engaged account lockout.
+Test 43: MANUAL — BAA coverage for hosting and every ePHI-handling service requires deployment/vendor verification.
+
+Test 44: MANUAL — Keeping real PHI out of test and staging environments requires organizational data-handling controls.
+
+### Prompt 13.T — Mobile/responsive regression
+
+Test 97: MANUAL — Real iOS Safari and Android Chrome validation of all visit-note types remains required.
+
+Test 98: MANUAL — Real-device validation of full-screen, unclipped lab-order and prescription panels remains required.
+
+Test 99: MANUAL — Real-device validation of one-handed navigation and touch-target usability remains required.
+
+Test 100: PASS — Automated theme-control and dark-mode contracts passed across shared pages.
+Test 101: PASS — Dropped-response retry protection prevented duplicate appointments.
+
+### Prompt 14.T — Requested cross-module workflows
+
+Test 106: PASS — `tests/test_end_to_end_workflows.py::test_106_new_ob_patient_day_end_to_end` scripted registration, New OB scheduling, check-in, nurse/M.A. vitals and pregnancy episode intake, physician prenatal note completion, New OB Panel ordering, unsafe pregnancy-warning behavior, safe prenatal-vitamin prescribing, next-action follow-up handoff, the gestational-age-based four-week recommendation, front-desk follow-up booking, and Billing checkout. It asserted the final clinic, patient, appointment, episode, visit, lab-order, prescription, follow-up appointment, invoice, and charge links plus paid invoice state.
+Test 111: PASS — `tests/test_end_to_end_workflows.py::test_111_clinic_admin_corrects_duplicate_patient_end_to_end` scripted duplicate correction through the clinic-admin delete route, verified immediate hiding from every role's patient list, confirmed the retained row could be restored, checked the actor/entity/action AuditLog fields, and confirmed linked appointment and visit rows remained intact and correctly associated.
+
+Prompt 3.T–13.T full regression: PASS — `python -m pytest -q tests/test_foundation.py tests/test_patients.py tests/test_scheduling.py tests/test_clinical.py tests/test_labs.py tests/test_prescriptions.py tests/test_billing.py tests/test_reporting.py tests/test_licensing.py tests/test_security.py tests/test_responsive.py` completed with 159 passed and 3 existing dependency deprecation warnings.
+Prompt 14.T end-to-end suite: PASS — `python -m pytest -q tests/test_end_to_end_workflows.py` completed with 2 passed and 2 existing dependency deprecation warnings.
