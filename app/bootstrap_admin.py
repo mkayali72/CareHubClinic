@@ -66,6 +66,19 @@ def _read_password(provided_password: str | None) -> str:
     return password
 
 
+def _normalize_email(email: str) -> str:
+    """Normalize and validate the email used as the login identifier."""
+
+    normalized_email = email.strip().lower()
+    if not normalized_email:
+        raise ValueError("Email is required.")
+    if "@" not in normalized_email:
+        raise ValueError(
+            "Use a complete email address, such as admin@example.invalid."
+        )
+    return normalized_email
+
+
 def _select_clinic(
     db: Session,
     clinic_id: int | None,
@@ -109,9 +122,7 @@ def bootstrap_admin(
             ambiguous, or the password fails the application policy.
     """
 
-    normalized_email = email.strip().lower()
-    if not normalized_email:
-        raise ValueError("Email is required.")
+    normalized_email = _normalize_email(email)
 
     with SessionLocal() as db:
         existing_user = db.scalar(
@@ -145,9 +156,10 @@ def main() -> int:
 
     args = _parser().parse_args()
     try:
+        normalized_email = _normalize_email(args.email)
         password = _read_password(args.password)
         user, clinic = bootstrap_admin(
-            email=args.email,
+            email=normalized_email,
             password=password,
             full_name=args.full_name,
             clinic_id=args.clinic_id,
