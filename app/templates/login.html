@@ -53,6 +53,9 @@
             <input class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100" id="password" name="password" type="password" autocomplete="current-password" required />
           </div>
           <div id="login-feedback" aria-live="polite">
+            {% if message %}
+              <p class="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ message }}</p>
+            {% endif %}
             {% if error %}
               <p class="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ error }}</p>
             {% endif %}

@@ -241,6 +241,51 @@ def reset_user_password(
     return target
 
 
+def change_own_password(
+    db: Session,
+    user: User,
+    current_password: str,
+    new_password: str,
+) -> User:
+    """Change a user's password after verifying their current password.
+
+    The current password is never stored or returned. Incrementing the
+    session-version counter invalidates every previously issued session,
+    including the session making this request; callers should clear that
+    browser session after committing.
+
+    Args:
+        db: Request-scoped SQLAlchemy session.
+        user: Authenticated staff account changing its own password.
+        current_password: Plaintext password supplied for verification.
+        new_password: Plaintext replacement password.
+
+    Returns:
+        The updated pending User instance.
+
+    Raises:
+        ValueError: If the current password is incorrect or the new password
+            fails the application complexity policy.
+    """
+
+    if not verify_password(current_password, user.hashed_password):
+        raise ValueError("The current password is incorrect.")
+    validate_password(new_password)
+    user.hashed_password = hash_password(new_password)
+    user.failed_login_attempts = 0
+    user.locked_until = None
+    user.session_version += 1
+    record_audit_event(
+        db=db,
+        actor_user_id=user.id,
+        action=AuditAction.UPDATE,
+        entity_type="user",
+        entity_id=user.id,
+        details={"password_changed": True},
+    )
+    return user
+
+
 def authenticate_user(db: Session, email: str, password: str) -> User | None:
     """Find an active user and verify the supplied credentials.
 

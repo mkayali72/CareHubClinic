@@ -4,12 +4,15 @@ from fastapi import APIRouter, Depends, Form, Request
 from sqlalchemy.orm import Session
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 
+from app.config import settings
 from app.database import get_db
 from app.services.auth import (
     authenticate_user,
+    change_own_password,
     get_current_user,
     login_user,
     logout_user,
+    require_authenticated_user,
 )
 from app.models import User
 from app.templates import create_templates
@@ -38,7 +41,15 @@ def login_page(
     return templates.TemplateResponse(
         request=request,
         name="login.html",
-        context={"page_title": "Sign in", "error": None},
+        context={
+            "page_title": "Sign in",
+            "error": None,
+            "message": (
+                "Your password was changed. Sign in again with your new password."
+                if request.query_params.get("password_changed") == "1"
+                else None
+            ),
+        },
     )
 
 
@@ -107,3 +118,65 @@ def logout(request: Request, db: Session = Depends(get_db)) -> Response:
         response.headers["HX-Redirect"] = "/login"
         return response
     return RedirectResponse(url="/login", status_code=303)
+
+
+@router.get("/account/password", response_class=HTMLResponse)
+def change_password_page(
+    request: Request,
+    current_user: User = Depends(require_authenticated_user),
+) -> Response:
+    """Render the authenticated user's password-change form."""
+
+    return templates.TemplateResponse(
+        request=request,
+        name="auth/change_password.html",
+        context={
+            "app_name": settings.app_name,
+            "page_title": "Change password",
+            "user": current_user,
+            "error": None,
+        },
+    )
+
+
+@router.post("/account/password", response_class=HTMLResponse)
+def change_password(
+    request: Request,
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    password_confirmation: str = Form(...),
+    current_user: User = Depends(require_authenticated_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    """Change the authenticated user's password and end all existing sessions."""
+
+    error: str | None = None
+    try:
+        if new_password != password_confirmation:
+            raise ValueError("The password entries do not match.")
+        change_own_password(
+            db=db,
+            user=current_user,
+            current_password=current_password,
+            new_password=new_password,
+        )
+        db.commit()
+    except ValueError as exc:
+        db.rollback()
+        error = str(exc)
+
+    if error is not None:
+        return templates.TemplateResponse(
+            request=request,
+            name="auth/change_password.html",
+            context={
+                "app_name": settings.app_name,
+                "page_title": "Change password",
+                "user": current_user,
+                "error": error,
+            },
+            status_code=422,
+        )
+
+    request.session.clear()
+    return RedirectResponse(url="/login?password_changed=1", status_code=303)

@@ -23,6 +23,10 @@
       <span class="h-2 w-2 shrink-0 rounded-full bg-slate-300"></span>
       Reporting
     </a>
+    <a class="sidebar-link touch-target mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600" href="/account/password">
+      <span class="h-2 w-2 shrink-0 rounded-full bg-slate-300"></span>
+      Change password
+    </a>
   {% endif %}
   {% if user and user.role and user.role.value == "clinic_admin" %}
     <a class="sidebar-link touch-target mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-fuchsia-700" href="/admin/staff">

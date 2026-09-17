@@ -20,6 +20,7 @@ from app.services.auth import (
     change_user_role,
     create_user,
     require_roles,
+    verify_password,
 )
 
 
@@ -118,6 +119,128 @@ def test_9_logout_invalidates_the_previous_session_cookie(
     )
     assert replay_response.status_code == 303
     assert replay_response.headers["location"] == "/login"
+
+
+def test_staff_can_change_own_password_and_all_sessions_are_invalidated(
+    client: TestClient,
+    db_session: Session,
+    seeded_users: dict[UserRole, User],
+) -> None:
+    """A staff member changes their password without exposing password data."""
+
+    user = seeded_users[UserRole.FRONT_DESK]
+    login_response = client.post(
+        "/login",
+        data={"email": user.email, "password": "Valid-Test-Password1"},
+        follow_redirects=False,
+    )
+    assert login_response.status_code == 303
+    old_cookie = dict(client.cookies)
+    assert client.get("/account/password").status_code == 200
+
+    change_response = client.post(
+        "/account/password",
+        data={
+            "current_password": "Valid-Test-Password1",
+            "new_password": "Changed-Password-Valid2",
+            "password_confirmation": "Changed-Password-Valid2",
+        },
+        follow_redirects=False,
+    )
+    assert change_response.status_code == 303
+    assert change_response.headers["location"] == "/login?password_changed=1"
+
+    db_session.refresh(user)
+    assert user.hashed_password.startswith("$argon2")
+    assert verify_password("Changed-Password-Valid2", user.hashed_password)
+    assert not verify_password("Valid-Test-Password1", user.hashed_password)
+    assert "Changed-Password-Valid2" not in user.hashed_password
+
+    audit = db_session.scalar(
+        select(AuditLog).where(
+            AuditLog.entity_id == user.id,
+            AuditLog.action == AuditAction.UPDATE,
+            AuditLog.details["password_changed"].as_boolean().is_(True),
+        )
+    )
+    assert audit is not None
+    assert audit.actor_user_id == user.id
+    assert audit.details == {"password_changed": True}
+
+    assert client.get("/welcome", follow_redirects=False).status_code == 303
+    replay_response = client.get(
+        "/welcome",
+        cookies=old_cookie,
+        follow_redirects=False,
+    )
+    assert replay_response.status_code == 303
+    assert replay_response.headers["location"] == "/login"
+
+    new_login = client.post(
+        "/login",
+        data={"email": user.email, "password": "Changed-Password-Valid2"},
+        follow_redirects=False,
+    )
+    assert new_login.status_code == 303
+    assert client.get("/welcome").status_code == 200
+
+
+def test_own_password_change_rejects_wrong_current_and_weak_or_mismatched_new_password(
+    client: TestClient,
+    db_session: Session,
+    seeded_users: dict[UserRole, User],
+) -> None:
+    """Password errors do not change the account or echo submitted secrets."""
+
+    user = seeded_users[UserRole.NURSE_MA]
+    client.post(
+        "/login",
+        data={"email": user.email, "password": "Valid-Test-Password1"},
+        follow_redirects=False,
+    )
+    original_hash = user.hashed_password
+
+    responses = [
+        (
+            {
+                "current_password": "Wrong-Current-Password1",
+                "new_password": "Changed-Password-Valid2",
+                "password_confirmation": "Changed-Password-Valid2",
+            },
+            "The current password is incorrect.",
+        ),
+        (
+            {
+                "current_password": "Valid-Test-Password1",
+                "new_password": "short",
+                "password_confirmation": "short",
+            },
+            "Password must be at least 12 characters",
+        ),
+        (
+            {
+                "current_password": "Valid-Test-Password1",
+                "new_password": "Changed-Password-Valid2",
+                "password_confirmation": "Different-Password-Valid3",
+            },
+            "The password entries do not match.",
+        ),
+    ]
+
+    for form_data, expected_error in responses:
+        response = client.post(
+            "/account/password",
+            data=form_data,
+            follow_redirects=False,
+        )
+        assert response.status_code == 422
+        assert expected_error in response.text
+        assert "Valid-Test-Password1" not in response.text
+        assert "Changed-Password-Valid2" not in response.text
+        assert "Different-Password-Valid3" not in response.text
+
+    db_session.refresh(user)
+    assert user.hashed_password == original_hash
 
 
 def test_10_password_complexity_and_login_lockout(
