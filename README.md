@@ -92,6 +92,36 @@ before starting FastAPI, and PostgreSQL data is stored in the named
    `Ctrl+C`, or run `docker compose down`. The named database volume remains
    until it is explicitly removed with `docker compose down -v`.
 
+### Create the first login account
+
+The application intentionally has no public registration page. On a fresh
+database, run the one-time bootstrap command from the project directory after
+the database is available:
+
+```bash
+python -m app.bootstrap_admin --email admin@example.invalid
+```
+
+Enter and confirm a password when prompted. The command creates a
+`clinic_admin` account, creates the first clinic when needed, and refuses to
+overwrite an existing account. If more than one clinic already exists, provide
+the intended clinic explicitly:
+
+```bash
+python -m app.bootstrap_admin \
+  --email admin@example.invalid \
+  --clinic-id 1
+```
+
+Then open `/login` and sign in with that email and the password entered during
+bootstrap. For a Docker-only setup, run the command from a Python environment
+that can reach the PostgreSQL service, or run it inside the app container:
+
+```bash
+docker compose run --rm app python -m app.bootstrap_admin \
+  --email admin@example.invalid
+```
+
 If either service does not become healthy, inspect the startup output before
 restarting:
 
