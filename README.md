@@ -78,6 +78,7 @@ before starting FastAPI, and PostgreSQL data is stored in the named
 5. In a second terminal, confirm the app and database are healthy:
 
    ```bash
+   docker compose ps
    curl http://localhost:8000/health
    ```
 
@@ -90,6 +91,17 @@ before starting FastAPI, and PostgreSQL data is stored in the named
 6. Open `http://localhost:8000/login` in a browser. Stop the stack with
    `Ctrl+C`, or run `docker compose down`. The named database volume remains
    until it is explicitly removed with `docker compose down -v`.
+
+If either service does not become healthy, inspect the startup output before
+restarting:
+
+```bash
+docker compose logs db app
+```
+
+The app waits for PostgreSQL's healthcheck and runs all pending migrations
+automatically. Do not run `docker compose down -v` unless deleting the local
+database volume is intentional.
 
 To run the Python tests on the host, install the development requirements and
 point `DATABASE_URL` at a PostgreSQL instance reachable from the host:

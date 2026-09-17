@@ -1,5 +1,17 @@
 # Automated Test Results
 
+## Prompt 15.T — Export-Readiness Verification
+
+Test 113: PASS — Re-ran the complete automated suite with `python -m pytest -q`; all 161 tests passed with zero failures. The run produced the same three existing dependency deprecation warnings.
+
+Test 114: PASS — Applied the complete Alembic chain through `0010` against a fresh PostgreSQL database, populated it with clinic, user, patient, appointment type, appointment, and backfilled license rows, applied `0011_request_idempotency`, verified the new column and constraint, downgraded the latest migration, confirmed all populated rows remained and the latest objects were removed, then upgraded again and confirmed the rows and final revision were restored.
+
+Test 115: MANUAL — `docker compose build` passed and produced the app image. In this Replit Docker daemon, normal `docker compose up` could not pass the PostgreSQL healthcheck because healthcheck exec returned an OCI `setns` error even though PostgreSQL logs showed it ready to accept connections. The app/database direct-start sanity check had already returned healthy `/health` and HTTP 200 from `/login`; repeat the normal dependency-ordered `docker compose up --build` check on Docker Desktop.
+
+Test 116: MANUAL — Deployment metadata reports no published environment in this workspace, so rollback/data-retention verification cannot be executed here. The intended backup-first, application-image rollback, schema-compatibility, data-count verification, and post-rollback smoke-test procedure is documented in `TESTING.md` under “Prompt 15.T — Export-readiness rollback procedure.”
+
+README Docker Desktop instructions: PASS — Confirmed the “Run Locally with Docker Desktop” section covers cloning, `.env` creation, secret replacement, the `db` hostname, build/start, health verification, login, shutdown/volume behavior, host-test setup, and startup-log troubleshooting without requiring Replit context.
+
 ## Final export-readiness rollup — Prompt 14.T
 
 - **Automated cases executed:** 161 total — **161 PASS, 0 FAIL**

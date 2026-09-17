@@ -636,3 +636,28 @@ coverage and should still be spot-checked during the device pass.
       being dropped, retries the same client request ID, and verifies that
       exactly one appointment exists. It also checks the loading, busy, and
       clear connection-error UI contract.
+
+## Prompt 15.T — Export-readiness rollback procedure
+
+The current Replit workspace has no published deployment, so production
+rollback is a manual check for the first real deployment. When deployment
+infrastructure exists, use this procedure:
+
+1. Put the application into a maintenance/read-only window and record the
+   currently deployed version and database migration revision.
+2. Take and verify a database backup or provider snapshot before changing the
+   deployed version. Never use `docker compose down -v` for a production
+   rollback.
+3. Prefer rolling the application image back to the previous version while
+   keeping the database at its current compatible migration level. Do not run a
+   destructive database downgrade automatically as part of an application
+   rollback.
+4. If a schema rollback is unavoidable, restore a copy of the backup into an
+   isolated database first, run the exact Alembic downgrade there, and verify
+   row counts and representative patient, appointment, visit, lab, prescription,
+   invoice, payment, and audit records.
+5. After rollback, run `/health`, verify the login flow, compare migration
+   revision and key record counts, and exercise one read-only and one
+   state-changing workflow before reopening writes.
+6. Preserve the backup, deployment logs, migration output, and verification
+   results as the rollback record.
