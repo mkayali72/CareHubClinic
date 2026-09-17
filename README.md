@@ -95,11 +95,14 @@ before starting FastAPI, and PostgreSQL data is stored in the named
 ### Create the first login account
 
 The application intentionally has no public registration page. On a fresh
-database, run the one-time bootstrap command from the project directory after
-the database is available:
+database, run the one-time bootstrap command after PostgreSQL is available.
+For the supported Docker Desktop setup, run it inside the application
+container:
 
 ```bash
-python -m app.bootstrap_admin --email admin@example.invalid
+docker compose up -d --build
+docker compose run --rm app python -m app.bootstrap_admin \
+  --email admin@example.invalid
 ```
 
 Enter and confirm a password when prompted. The command creates a
@@ -108,17 +111,31 @@ overwrite an existing account. If more than one clinic already exists, provide
 the intended clinic explicitly:
 
 ```bash
-python -m app.bootstrap_admin \
+docker compose run --rm app python -m app.bootstrap_admin \
   --email admin@example.invalid \
   --clinic-id 1
 ```
 
 Then open `/login` and sign in with that email and the password entered during
-bootstrap. For a Docker-only setup, run the command from a Python environment
-that can reach the PostgreSQL service, or run it inside the app container:
+bootstrap. Use a complete email address; the login form rejects values such as
+`admin`.
+
+If you prefer to run the command from macOS instead of Docker, install Python
+3.13 or newer, create a virtual environment, and install the pinned
+dependencies:
 
 ```bash
-docker compose run --rm app python -m app.bootstrap_admin \
+brew install python@3.13
+python3.13 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+```
+
+With Docker PostgreSQL running, point the host command at the published
+`localhost` port. The Compose hostname `db` is only resolvable inside Docker:
+
+```bash
+DATABASE_URL=postgresql+psycopg://clinic:clinic@localhost:5432/obgyn \
+  .venv/bin/python -m app.bootstrap_admin \
   --email admin@example.invalid
 ```
 
