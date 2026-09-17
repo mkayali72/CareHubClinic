@@ -6,3 +6,4 @@
 - [Lab upload security](lab-upload-security.md) — use generated basenames and directory-descriptor operations for private clinical files.
 - [Alembic revision length](alembic-revision-length.md) — keep migration revision identifiers within the database version column's 32-character limit.
 - [Docker Compose validation](docker-compose-validation.md) — a local OCI healthcheck exec failure can differ from actual database/app readiness.
+- [Staff account management boundaries](staff-account-management.md) — keep clinic-admin authorization in dedicated staff operations, not the generic user factory.

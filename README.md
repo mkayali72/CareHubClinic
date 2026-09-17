@@ -30,9 +30,9 @@ app/
   database.py           SQLAlchemy engine, ORM sessions, and soft-delete filter
   main.py               FastAPI application factory and entry point
   models/               Clinic, Patient, User, scheduling, and clinical entities
-  routes/               Health, authentication, patient, scheduling, clinical, billing, reporting, licensing, and page routers
+  routes/               Health, authentication, staff administration, patient, scheduling, clinical, billing, reporting, licensing, and page routers
   schemas/              Reserved for future request/response schemas
-  services/             Authentication, scheduling, clinical, patient, billing, reporting, licensing, and audit logic
+  services/             Authentication and staff account management, scheduling, clinical, patient, billing, reporting, licensing, and audit logic
   static/               CSS and future static assets
   templates/            Login, patient, scheduling, visit, billing, reports, licensing, welcome, and shared shell
 alembic/
@@ -121,6 +121,15 @@ that can reach the PostgreSQL service, or run it inside the app container:
 docker compose run --rm app python -m app.bootstrap_admin \
   --email admin@example.invalid
 ```
+
+### Manage staff accounts
+
+After signing in as a `clinic_admin`, open `/admin/staff` or select **Staff
+accounts** in the clinic administration navigation. Administrators can create
+active physician, nurse/MA, front desk, and billing clerk accounts, deactivate
+or reactivate accounts, and set a new password without viewing the previous
+password. New and reset passwords use the same 12-character complexity policy
+as the bootstrap account, and each account change is recorded in the audit log.
 
 If either service does not become healthy, inspect the startup output before
 restarting:

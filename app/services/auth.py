@@ -12,11 +12,22 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import AuditAction, User, UserRole
-from app.services.audit import record_audit_event
+from app.services.audit import (
+    ensure_clinic_admin,
+    record_audit_event,
+    restore_record,
+    soft_delete_record,
+)
 from app.config import settings
 
 password_hasher = PasswordHash.recommended()
 MIN_PASSWORD_LENGTH = 12
+STAFF_ROLES = (
+    UserRole.PHYSICIAN,
+    UserRole.NURSE_MA,
+    UserRole.FRONT_DESK,
+    UserRole.BILLING_CLERK,
+)
 
 
 def hash_password(password: str) -> str:
@@ -97,11 +108,21 @@ def create_user(
     """
 
     validate_password(password)
+    normalized_email = email.strip().lower()
+    normalized_name = full_name.strip()
+    if not normalized_email or "@" not in normalized_email:
+        raise ValueError("A valid email address is required.")
+    if len(normalized_email) > 320:
+        raise ValueError("Email address is too long.")
+    if not normalized_name:
+        raise ValueError("Full name is required.")
+    if len(normalized_name) > 255:
+        raise ValueError("Full name is too long.")
     user = User(
         clinic_id=clinic_id,
-        email=email.strip().lower(),
+        email=normalized_email,
         hashed_password=hash_password(password),
-        full_name=full_name,
+        full_name=normalized_name,
         role=role,
     )
     db.add(user)
@@ -115,6 +136,109 @@ def create_user(
         details={"role": role.value if role else None},
     )
     return user
+
+
+def ensure_staff_management_actor(actor: User, clinic_id: int) -> None:
+    """Require a clinic administrator acting inside their own clinic."""
+
+    ensure_clinic_admin(actor)
+    if actor.clinic_id != clinic_id:
+        raise PermissionError("A clinic administrator may only manage their own clinic.")
+
+
+def create_staff_account(
+    db: Session,
+    actor: User,
+    email: str,
+    password: str,
+    full_name: str,
+    role: UserRole,
+) -> User:
+    """Create an active non-administrator staff account for the actor's clinic."""
+
+    ensure_staff_management_actor(actor, actor.clinic_id)
+    if role not in STAFF_ROLES:
+        raise ValueError("Only physician, nurse/MA, front desk, and billing clerk accounts may be created.")
+    return create_user(
+        db=db,
+        clinic_id=actor.clinic_id,
+        email=email,
+        password=password,
+        full_name=full_name,
+        role=role,
+        actor=actor,
+    )
+
+
+def _ensure_managed_user(actor: User, target: User) -> None:
+    """Require an administrator to manage a user in the same clinic."""
+
+    ensure_staff_management_actor(actor, target.clinic_id)
+    if actor.clinic_id != target.clinic_id:
+        raise PermissionError("A clinic administrator may only manage their own clinic.")
+    if actor.id == target.id:
+        raise ValueError("You cannot deactivate or reset your own account from this screen.")
+
+
+def deactivate_user(db: Session, actor: User, target: User) -> User:
+    """Deactivate and soft-delete a staff account, invalidating its sessions."""
+
+    _ensure_managed_user(actor, target)
+    if target.deleted_at is None:
+        target.is_active = False
+        target.session_version += 1
+        soft_delete_record(
+            db,
+            target,
+            actor,
+            "user",
+            target.id,
+            details={"status": "deactivated"},
+        )
+    return target
+
+
+def reactivate_user(db: Session, actor: User, target: User) -> User:
+    """Restore a soft-deleted staff account and permit it to log in again."""
+
+    _ensure_managed_user(actor, target)
+    if target.deleted_at is not None:
+        restore_record(
+            db,
+            target,
+            actor,
+            "user",
+            target.id,
+            details={"status": "reactivated"},
+        )
+    target.is_active = True
+    target.session_version += 1
+    return target
+
+
+def reset_user_password(
+    db: Session,
+    actor: User,
+    target: User,
+    password: str,
+) -> User:
+    """Set a new password without reading or returning the previous password."""
+
+    _ensure_managed_user(actor, target)
+    validate_password(password)
+    target.hashed_password = hash_password(password)
+    target.failed_login_attempts = 0
+    target.locked_until = None
+    target.session_version += 1
+    record_audit_event(
+        db=db,
+        actor_user_id=actor.id,
+        action=AuditAction.UPDATE,
+        entity_type="user",
+        entity_id=target.id,
+        details={"password_reset": True},
+    )
+    return target
 
 
 def authenticate_user(db: Session, email: str, password: str) -> User | None:

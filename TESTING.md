@@ -35,6 +35,24 @@ steps:
 alembic upgrade head
 ```
 
+### Clinic-admin staff account management
+
+- [ ] As `clinic_admin`, open `/admin/staff`; create one active account for
+      physician, nurse/MA, front desk, and billing clerk. Confirm the account
+      appears only in the current clinic's directory, the stored value is an
+      Argon2 hash, and the new staff member can sign in.
+- [ ] Submit a weak password, a mismatched confirmation, an invalid role, and a
+      duplicate email. Confirm each request is rejected without creating an
+      account or exposing the submitted password.
+- [ ] As a non-admin role and while anonymous, confirm `/admin/staff` and every
+      staff-management write are rejected.
+- [ ] Deactivate a staff account. Confirm its row remains available through the
+      admin directory with inactive status, its existing session is invalidated,
+      login is rejected, and a delete audit event identifies the administrator.
+- [ ] Reactivate the account and confirm the restore audit event and successful
+      login. Set a new password, confirm the old password fails, the new
+      password succeeds, and the audit event contains no password value.
+
 - [ ] Create one development Clinic row.
 - [ ] Create one User row for each role: `physician`, `nurse_ma`, `front_desk`,
       `billing_clerk`, and `clinic_admin`. Store only values produced by the

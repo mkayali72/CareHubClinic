@@ -25,7 +25,11 @@
     </a>
   {% endif %}
   {% if user and user.role and user.role.value == "clinic_admin" %}
-    <a class="sidebar-link touch-target mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-fuchsia-700" href="/admin/prescriptions">
+    <a class="sidebar-link touch-target mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-fuchsia-700" href="/admin/staff">
+      <span class="h-2 w-2 shrink-0 rounded-full bg-fuchsia-500"></span>
+      Staff accounts
+    </a>
+    <a class="sidebar-link touch-target mt-2 flex items-center gap-3 rounded-xl bg-fuchsia-50 px-3 py-2.5 text-sm font-semibold text-fuchsia-700" href="/admin/prescriptions">
       <span class="h-2 w-2 shrink-0 rounded-full bg-fuchsia-500"></span>
       Medication formulary
     </a>
