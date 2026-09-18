@@ -1,50 +1,70 @@
-<nav class="flex-1 px-4 py-6" aria-label="Primary navigation">
+{% set current_path = request.url.path %}
+{% set dashboard_active = current_path in ["/", "/welcome"] %}
+{% set schedule_active = current_path == "/schedule" or current_path.startswith("/schedule/") %}
+{% set queue_active = current_path == "/queue" or current_path.startswith("/queue/") %}
+{% set patients_active = current_path == "/patients" or current_path.startswith("/patients/") %}
+{% set reports_active = current_path == "/reports" or current_path.startswith("/reports/") %}
+{% set password_active = current_path == "/account/password" %}
+{% set staff_active = current_path == "/admin/staff" %}
+{% set prescriptions_active = current_path == "/admin/prescriptions" %}
+{% set features_active = current_path == "/admin/clinic-features" %}
+{% set billing_active = current_path == "/billing" or current_path.startswith("/billing/") %}
+
+{% macro module_link_classes(active, spacing="mt-2") -%}
+  sidebar-link touch-target {{ spacing }} flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold {{ "bg-indigo-50 text-indigo-700" if active else "bg-white text-slate-600" }}
+{%- endmacro %}
+
+{% macro module_dot_classes(active) -%}
+  h-2 w-2 shrink-0 rounded-full {{ "bg-indigo-600" if active else "bg-slate-300" }}
+{%- endmacro %}
+
+<nav class="flex-1 bg-white px-4 py-6" aria-label="Primary navigation">
   <p class="px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Workspace</p>
-  <a class="sidebar-link touch-target mt-3 flex items-center gap-3 rounded-xl bg-indigo-50 px-3 py-2.5 text-sm font-semibold text-indigo-700" href="/">
-    <span class="h-2 w-2 shrink-0 rounded-full bg-indigo-600"></span>
+  <a class="{{ module_link_classes(dashboard_active, 'mt-3') }}" href="/">
+    <span class="{{ module_dot_classes(dashboard_active) }}"></span>
     Dashboard
   </a>
   {% if user and user.role and user.role.value != "billing_clerk" %}
-    <a class="sidebar-link touch-target mt-2 flex items-center gap-3 rounded-xl bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-700" href="/schedule">
-      <span class="h-2 w-2 shrink-0 rounded-full bg-emerald-500"></span>
+    <a class="{{ module_link_classes(schedule_active) }}" href="/schedule">
+      <span class="{{ module_dot_classes(schedule_active) }}"></span>
       Schedule
     </a>
-    <a class="sidebar-link touch-target mt-2 flex items-center gap-3 rounded-xl border border-emerald-100 px-3 py-2.5 text-sm font-semibold text-emerald-700" href="/queue">
-      <span class="h-2 w-2 shrink-0 rounded-full bg-emerald-500"></span>
+    <a class="{{ module_link_classes(queue_active) }}" href="/queue">
+      <span class="{{ module_dot_classes(queue_active) }}"></span>
       Today's Queue
     </a>
   {% endif %}
-  <a class="sidebar-link touch-target mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600" href="/patients">
-    <span class="h-2 w-2 shrink-0 rounded-full bg-slate-300"></span>
+  <a class="{{ module_link_classes(patients_active) }}" href="/patients">
+    <span class="{{ module_dot_classes(patients_active) }}"></span>
     Patients
   </a>
   {% if user %}
-    <a class="sidebar-link touch-target mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600" href="/reports">
-      <span class="h-2 w-2 shrink-0 rounded-full bg-slate-300"></span>
+    <a class="{{ module_link_classes(reports_active) }}" href="/reports">
+      <span class="{{ module_dot_classes(reports_active) }}"></span>
       Reporting
     </a>
-    <a class="sidebar-link touch-target mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600" href="/account/password">
-      <span class="h-2 w-2 shrink-0 rounded-full bg-slate-300"></span>
+    <a class="{{ module_link_classes(password_active) }}" href="/account/password">
+      <span class="{{ module_dot_classes(password_active) }}"></span>
       Change password
     </a>
   {% endif %}
   {% if user and user.role and user.role.value == "clinic_admin" %}
-    <a class="sidebar-link touch-target mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-fuchsia-700" href="/admin/staff">
-      <span class="h-2 w-2 shrink-0 rounded-full bg-fuchsia-500"></span>
+    <a class="{{ module_link_classes(staff_active) }}" href="/admin/staff">
+      <span class="{{ module_dot_classes(staff_active) }}"></span>
       Staff accounts
     </a>
-    <a class="sidebar-link touch-target mt-2 flex items-center gap-3 rounded-xl bg-fuchsia-50 px-3 py-2.5 text-sm font-semibold text-fuchsia-700" href="/admin/prescriptions">
-      <span class="h-2 w-2 shrink-0 rounded-full bg-fuchsia-500"></span>
+    <a class="{{ module_link_classes(prescriptions_active) }}" href="/admin/prescriptions">
+      <span class="{{ module_dot_classes(prescriptions_active) }}"></span>
       Medication formulary
     </a>
-    <a class="sidebar-link touch-target mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-fuchsia-700" href="/admin/clinic-features">
-      <span class="h-2 w-2 shrink-0 rounded-full bg-fuchsia-500"></span>
+    <a class="{{ module_link_classes(features_active) }}" href="/admin/clinic-features">
+      <span class="{{ module_dot_classes(features_active) }}"></span>
       Optional modules
     </a>
   {% endif %}
   {% if user and user.role and user.clinic and user.clinic.billing_module_enabled and user.role.value in ["billing_clerk", "clinic_admin"] %}
-    <a class="sidebar-link touch-target mt-2 flex items-center gap-3 rounded-xl bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-800" href="/billing">
-      <span class="h-2 w-2 shrink-0 rounded-full bg-amber-500"></span>
+    <a class="{{ module_link_classes(billing_active) }}" href="/billing">
+      <span class="{{ module_dot_classes(billing_active) }}"></span>
       Billing
     </a>
   {% endif %}
