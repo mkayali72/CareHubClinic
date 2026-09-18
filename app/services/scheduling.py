@@ -17,6 +17,7 @@ from app.models import (
     UserRole,
 )
 from app.services.audit import record_audit_event
+from app.services.input_validation import validate_phone
 from app.services.patients import create_patient
 
 SCHEDULING_ROLES = (
@@ -263,6 +264,7 @@ def create_walk_in(
         raise ValueError("Walk-in patient name is required.")
     if date_of_birth is None:
         raise ValueError("Walk-in patient date of birth is required.")
+    normalized_phone = validate_phone(phone, field_name="Walk-in phone")
 
     appointment_type = _clinic_appointment_type(
         db,
@@ -277,7 +279,7 @@ def create_walk_in(
         payload={
             "name": name.strip(),
             "date_of_birth": date_of_birth,
-            "contact_info": {"phone": phone.strip()} if phone.strip() else {},
+            "contact_info": {"phone": normalized_phone} if normalized_phone else {},
             "insurance_info": {},
             "emergency_contact": {},
             "allergies": [],

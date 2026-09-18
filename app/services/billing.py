@@ -171,6 +171,8 @@ def _validate_price(value: Decimal | str) -> Decimal:
         price = Decimal(str(value)).quantize(Decimal("0.01"))
     except (InvalidOperation, ValueError) as error:
         raise ValueError("Fee schedule price must be a valid amount.") from error
+    if not price.is_finite():
+        raise ValueError("Fee schedule price must be a finite amount.")
     if price < 0:
         raise ValueError("Fee schedule price cannot be negative.")
     return price

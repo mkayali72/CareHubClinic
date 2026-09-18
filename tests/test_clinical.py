@@ -115,7 +115,7 @@ def make_visit(
         {"blood_pressure": "120/80", "weight_kg": "68.5", "height_cm": "165"},
         {
             "fundal_height_cm": "24",
-            "fetal_heart_tones": "145 bpm",
+            "fetal_heart_tones": "145",
             "fetal_position": "cephalic",
             "ultrasound_efw_grams": "620",
         },
@@ -417,7 +417,7 @@ def test_visit_route_save_exposes_next_action_prompt(
             "blood_pressure": "120/80",
             "weight_kg": "70",
             "fundal_height_cm": "12",
-            "fetal_heart_tones": "150 bpm",
+            "fetal_heart_tones": "150",
             "hpi": "Doing well.",
             "assessment": "Stable.",
             "plan": "Continue.",

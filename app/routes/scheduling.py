@@ -1,6 +1,7 @@
 """Scheduling calendar, queue, appointment, and lookup routes."""
 
 from datetime import date, datetime
+import re
 from typing import Any
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
@@ -51,6 +52,8 @@ def parse_selected_date(value: str | None) -> date:
 
     if not value:
         return date.today()
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        raise HTTPException(status_code=422, detail="Date must use YYYY-MM-DD.")
     try:
         return date.fromisoformat(value)
     except ValueError as error:
@@ -60,6 +63,11 @@ def parse_selected_date(value: str | None) -> date:
 def parse_scheduled_at(value: str) -> datetime:
     """Parse a browser datetime-local value into a clinic-local datetime."""
 
+    if "T" not in value:
+        raise HTTPException(
+            status_code=422,
+            detail="Scheduled time must include both a date and a time.",
+        )
     try:
         parsed = datetime.fromisoformat(value)
     except ValueError as error:

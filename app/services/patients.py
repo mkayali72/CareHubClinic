@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.models import AuditAction, Patient, User, UserRole
 from app.services.audit import record_audit_event
+from app.services.input_validation import validate_phone
 
 PATIENT_ROLES = (
     UserRole.PHYSICIAN,
@@ -155,7 +156,7 @@ def build_patient_payload(
         "date_of_birth": date_of_birth,
         "contact_info": compact_fields(
             {
-                "phone": contact_phone,
+                "phone": validate_phone(contact_phone, field_name="Primary phone"),
                 "email": contact_email,
                 "address": contact_address,
             }
@@ -175,7 +176,10 @@ def build_patient_payload(
                     {
                         "name": emergency_name,
                         "relationship": emergency_relationship,
-                        "phone": emergency_phone,
+                        "phone": validate_phone(
+                            emergency_phone,
+                            field_name="Emergency phone",
+                        ),
                     }
                 ),
                 "allergies": normalize_structured_items(

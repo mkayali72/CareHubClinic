@@ -89,7 +89,7 @@
               </div>
               <div class="mt-3 grid gap-4 sm:grid-cols-3">
                 <label class="text-sm font-medium text-slate-700">Blood pressure
-                  <input class="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" name="blood_pressure" placeholder="120/80" value="{{ visit_values.blood_pressure }}" />
+                  <input class="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" name="blood_pressure" inputmode="numeric" pattern="[0-9]{2,3}\s*/\s*[0-9]{2,3}" placeholder="120/80" value="{{ visit_values.blood_pressure }}" />
                 </label>
                 <label class="text-sm font-medium text-slate-700">Weight (kg)
                   <input class="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" name="weight_kg" type="number" step="0.1" min="0" value="{{ visit_values.weight_kg }}" />
@@ -110,7 +110,7 @@
                   <input class="mt-2 w-full rounded-xl border border-indigo-100 bg-white px-3 py-2.5 text-sm" name="fundal_height_cm" type="number" step="0.1" min="0" value="{{ visit_values.fundal_height_cm }}" />
                 </label>
                 <label class="text-sm font-medium text-slate-700">Fetal heart tones
-                  <input class="mt-2 w-full rounded-xl border border-indigo-100 bg-white px-3 py-2.5 text-sm" name="fetal_heart_tones" placeholder="e.g. 145 bpm" value="{{ visit_values.fetal_heart_tones }}" />
+                  <input class="mt-2 w-full rounded-xl border border-indigo-100 bg-white px-3 py-2.5 text-sm" name="fetal_heart_tones" type="number" step="1" min="0" inputmode="numeric" placeholder="e.g. 145" value="{{ visit_values.fetal_heart_tones }}" />
                 </label>
                 <label class="text-sm font-medium text-slate-700">Fetal position
                   <input class="mt-2 w-full rounded-xl border border-indigo-100 bg-white px-3 py-2.5 text-sm" name="fetal_position" placeholder="e.g. cephalic" value="{{ visit_values.fetal_position }}" />

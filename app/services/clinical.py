@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from datetime import date, datetime, timedelta, timezone
+import math
 from typing import Any
 
 from sqlalchemy import delete, or_, select
@@ -29,6 +30,7 @@ from app.models import (
     VisitType,
 )
 from app.services.audit import record_audit_event
+from app.services.input_validation import validate_blood_pressure
 
 CLINICAL_ROLES = (
     UserRole.PHYSICIAN,
@@ -182,9 +184,23 @@ def _number(value: Any) -> float | None:
         parsed = float(value)
     except (TypeError, ValueError) as error:
         raise ValueError(f"Invalid numeric clinical value: {value}") from error
+    if not math.isfinite(parsed):
+        raise ValueError(f"Invalid numeric clinical value: {value}")
     if parsed < 0:
         raise ValueError("Clinical numeric values cannot be negative.")
     return parsed
+
+
+def _numeric_text(value: Any, field_name: str) -> str:
+    """Validate a numeric reading while retaining its text representation."""
+
+    if value is None or str(value).strip() == "":
+        return ""
+    try:
+        _number(value)
+    except ValueError as error:
+        raise ValueError(f"{field_name} must be a number.") from error
+    return str(value).strip()
 
 
 def normalize_visit_sections(
@@ -196,7 +212,9 @@ def normalize_visit_sections(
     """Normalize shared and template-specific visit fields."""
 
     normalized_vitals = {
-        "blood_pressure": str(vitals.get("blood_pressure", "")).strip(),
+        "blood_pressure": validate_blood_pressure(
+            str(vitals.get("blood_pressure", ""))
+        ),
         "weight_kg": _number(vitals.get("weight_kg")),
         "height_cm": _number(vitals.get("height_cm")),
     }
@@ -206,7 +224,10 @@ def normalize_visit_sections(
         source = prenatal_data or {}
         normalized_prenatal = {
             "fundal_height_cm": _number(source.get("fundal_height_cm")),
-            "fetal_heart_tones": str(source.get("fetal_heart_tones", "")).strip(),
+            "fetal_heart_tones": _numeric_text(
+                source.get("fetal_heart_tones"),
+                "Fetal heart tones",
+            ),
             "fetal_position": str(source.get("fetal_position", "")).strip(),
             "presentation": str(source.get("presentation", "")).strip(),
             "ultrasound": {

@@ -172,7 +172,7 @@ def test_106_new_ob_patient_day_end_to_end(
             "weight_kg": "67.2",
             "height_cm": "164",
             "fundal_height_cm": "20",
-            "fetal_heart_tones": "145 bpm",
+            "fetal_heart_tones": "145",
         },
         follow_redirects=False,
     )
@@ -209,7 +209,7 @@ def test_106_new_ob_patient_day_end_to_end(
             "weight_kg": "67.2",
             "height_cm": "164",
             "fundal_height_cm": "20",
-            "fetal_heart_tones": "145 bpm",
+            "fetal_heart_tones": "145",
             "hpi": "First prenatal visit; no bleeding or cramping.",
             "assessment": "正常 early second-trimester pregnancy.",
             "plan": "Continue prenatal vitamins and routine prenatal care.",
