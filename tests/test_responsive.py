@@ -2,6 +2,7 @@
 
 from datetime import date
 from pathlib import Path
+import re
 
 import pytest
 from fastapi.testclient import TestClient
@@ -78,6 +79,9 @@ def test_100_theme_controls_and_dark_mode_contract_span_shared_pages(
         assert "Dashboard" in response.text, path
         assert "data-contrast-toggle" in response.text, path
         assert "/static/js/app.js" in response.text, path
+        if path == "/schedule":
+            assert re.search(r'<a class="[^"]*bg-indigo-50[^"]*" href="/schedule"', response.text)
+            assert re.search(r'<a class="[^"]*bg-white[^"]*" href="/"', response.text)
 
     assert 'html[data-theme="dark"]' in APP_CSS
     assert 'root.dataset.theme = value' in APP_JS
