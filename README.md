@@ -59,15 +59,17 @@ before starting FastAPI, and PostgreSQL data is stored in the named
    cd obgyn-clinic
    ```
 
-2. Create the local environment file:
+2. Create the local environment file (optional for development; Compose has safe
+   development defaults, but set a private session secret for any shared
+   environment):
 
    ```bash
    cp .env.example .env
    ```
 
-3. Open `.env` and replace `SESSION_SECRET` with a long random value. Adjust
-   the PostgreSQL username, password, or database name only if needed. Keep
-   `DATABASE_URL` pointed at the Compose service name `db`.
+3. If you created `.env`, replace `SESSION_SECRET` with a long random value.
+   Adjust the PostgreSQL username, password, or database name only if needed.
+   Keep `DATABASE_URL` pointed at the Compose service name `db`.
 
 4. Build and start both services:
 
@@ -92,7 +94,7 @@ before starting FastAPI, and PostgreSQL data is stored in the named
    `Ctrl+C`, or run `docker compose down`. The named database volume remains
    until it is explicitly removed with `docker compose down -v`.
 
-### First login
+### First login and administrator recovery
 
 The application creates the first clinic and administrator automatically when
 it starts against a database that contains no users. The initial administrator
@@ -116,6 +118,20 @@ overwrites an existing account.
 The initial values can be changed before first startup with
 `INITIAL_ADMIN_USERNAME` and `INITIAL_ADMIN_PASSWORD` in `.env`. Keep the
 database volume and its credentials private, especially outside development.
+
+If the database volume was kept while the containers were deleted, the initial
+administrator is not recreated because the database still contains users. To
+recover the configured initial administrator without creating an unauthenticated
+account-creation route, run:
+
+```bash
+docker compose exec app python -m app.initial_admin --reset-password
+```
+
+This resets only the configured clinic administrator to the values in
+`INITIAL_ADMIN_USERNAME` and `INITIAL_ADMIN_PASSWORD`. If the database really
+is disposable and should be recreated from scratch, use `docker compose down -v`
+before `docker compose up --build`.
 
 ### Manage staff accounts
 

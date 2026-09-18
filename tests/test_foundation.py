@@ -1,5 +1,6 @@
 """Automated coverage for foundation schema, authentication, and audit rules."""
 
+from datetime import datetime
 from pathlib import Path
 import re
 import time
@@ -20,6 +21,7 @@ from app.services.auth import (
     authenticate_user,
     change_user_role,
     create_user,
+    hash_password,
     require_roles,
     verify_password,
 )
@@ -64,6 +66,29 @@ def test_fresh_database_gets_one_default_clinic_admin(
         assert authenticate_user(session, "admin", "admin22446688") is admin
 
     assert initial_admin.ensure_initial_admin() is False
+
+
+def test_initial_admin_recovery_resets_existing_configured_account(
+    db_engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A retained database can recover the configured admin safely."""
+
+    session_factory = sessionmaker(bind=db_engine, expire_on_commit=False)
+    monkeypatch.setattr(initial_admin, "SessionLocal", session_factory)
+
+    assert initial_admin.ensure_initial_admin() is True
+    with session_factory() as session:
+        admin = session.scalar(select(User))
+        assert admin is not None
+        admin.hashed_password = hash_password("Different-Password1")
+        admin.failed_login_attempts = 5
+        admin.locked_until = datetime(2099, 1, 1)
+        session.commit()
+
+    assert initial_admin.reset_initial_admin_password() is True
+    with session_factory() as session:
+        assert authenticate_user(session, "admin", "admin22446688") is not None
 
 
 def test_2_authentication_and_admin_role_guards(

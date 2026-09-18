@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import argparse
+
 from sqlalchemy import select
 
 from app.config import settings
@@ -61,3 +63,80 @@ def ensure_initial_admin() -> bool:
         )
         db.commit()
         return True
+
+
+def reset_initial_admin_password() -> bool:
+    """Reset the configured initial administrator to its configured password.
+
+    This is an explicit local recovery operation for deployments where the
+    database volume survived but the administrator password is unknown. It
+    never creates or overwrites a different account.
+
+    Returns:
+        True when the configured administrator was found and reset.
+
+    Raises:
+        ValueError: If the configured username is not a clinic administrator.
+    """
+
+    username = settings.initial_admin_username.strip().lower()
+    with SessionLocal() as db:
+        user = db.scalar(
+            select(User)
+            .execution_options(include_deleted=True)
+            .where(User.username == username)
+        )
+        if user is None:
+            return False
+        if user.role is not UserRole.CLINIC_ADMIN:
+            raise ValueError(
+                f"Configured initial account {username!r} is not a clinic administrator."
+            )
+        user.hashed_password = hash_password(settings.initial_admin_password)
+        user.is_active = True
+        user.failed_login_attempts = 0
+        user.locked_until = None
+        user.session_version += 1
+        if user.deleted_at is not None:
+            user.restore()
+        record_audit_event(
+            db=db,
+            actor_user_id=None,
+            action=AuditAction.UPDATE,
+            entity_type="user",
+            entity_id=user.id,
+            details={"initial_admin_password_reset": True},
+        )
+        db.commit()
+        return True
+
+
+def main() -> int:
+    """Run the explicit initial-administrator recovery command."""
+
+    parser = argparse.ArgumentParser(
+        description="Recover the configured clinic administrator account.",
+    )
+    parser.add_argument(
+        "--reset-password",
+        action="store_true",
+        help="Reset the configured initial administrator to INITIAL_ADMIN_PASSWORD.",
+    )
+    args = parser.parse_args()
+    if not args.reset_password:
+        parser.error("Pass --reset-password to perform the recovery operation.")
+
+    if not reset_initial_admin_password():
+        parser.error(
+            "The configured initial administrator was not found. "
+            "A fresh application start will create it when the database has no users."
+        )
+    print(
+        "Reset the configured initial administrator password. "
+        "Sign in using INITIAL_ADMIN_USERNAME and INITIAL_ADMIN_PASSWORD."
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

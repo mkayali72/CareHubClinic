@@ -51,7 +51,12 @@ async def app_lifespan(application: FastAPI):
     """Initialize the first clinic and start the license check scheduler."""
 
     if not application.dependency_overrides:
-        await asyncio.to_thread(ensure_initial_admin)
+        created = await asyncio.to_thread(ensure_initial_admin)
+        logger.info(
+            "Initial administrator bootstrap %s for username %s",
+            "created" if created else "already initialized",
+            settings.initial_admin_username.strip().lower(),
+        )
     task = asyncio.create_task(_license_scheduler())
     application.state.license_scheduler_task = task
     try:
