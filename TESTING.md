@@ -42,7 +42,7 @@ alembic upgrade head
       appears only in the current clinic's directory, the stored value is an
       Argon2 hash, and the new staff member can sign in.
 - [ ] Submit a weak password, a mismatched confirmation, an invalid role, and a
-      duplicate email. Confirm each request is rejected without creating an
+      duplicate username. Confirm each request is rejected without creating an
       account or exposing the submitted password.
 - [ ] As a non-admin role and while anonymous, confirm `/admin/staff` and every
       staff-management write are rejected.
@@ -487,7 +487,7 @@ testing. Use `APP_ENV=production` for the production-response checks.
 - [ ] Submit five incorrect passwords for one account. Confirm subsequent
       correct-password attempts remain rejected until the configured
       `LOGIN_LOCKOUT_SECONDS` period ends.
-- [ ] Confirm the response does not reveal whether the email exists or whether
+- [ ] Confirm the response does not reveal whether the username exists or whether
       the account is locked.
 - [ ] Leave an authenticated session idle longer than
       `SESSION_INACTIVITY_SECONDS`. Confirm the next request redirects to

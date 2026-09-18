@@ -169,7 +169,7 @@ def seeded_users(db_session: Session) -> dict[UserRole, User]:
         users[role] = create_user(
             db=db_session,
             clinic_id=clinic.id,
-            email=f"{role.value}@example.invalid",
+            username=role.value,
             password="Valid-Test-Password1",
             full_name=f"Test {role.value}",
             role=role,

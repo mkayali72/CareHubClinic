@@ -83,7 +83,7 @@ def validate_password(password: str) -> None:
 def create_user(
     db: Session,
     clinic_id: int,
-    email: str,
+    username: str,
     password: str,
     full_name: str,
     role: UserRole | None = None,
@@ -94,7 +94,7 @@ def create_user(
     Args:
         db: Request-scoped SQLAlchemy session.
         clinic_id: Clinic that owns the new account.
-        email: Login email, normalized to lowercase.
+        username: Login username, normalized to lowercase.
         password: New plaintext password, validated then hashed.
         full_name: Display name for the account.
         role: Optional role; None means no elevated access until assigned.
@@ -108,19 +108,19 @@ def create_user(
     """
 
     validate_password(password)
-    normalized_email = email.strip().lower()
+    normalized_username = username.strip().lower()
     normalized_name = full_name.strip()
-    if not normalized_email or "@" not in normalized_email:
-        raise ValueError("A valid email address is required.")
-    if len(normalized_email) > 320:
-        raise ValueError("Email address is too long.")
+    if not normalized_username:
+        raise ValueError("A username is required.")
+    if len(normalized_username) > 16:
+        raise ValueError("Username must be 16 characters or fewer.")
     if not normalized_name:
         raise ValueError("Full name is required.")
     if len(normalized_name) > 255:
         raise ValueError("Full name is too long.")
     user = User(
         clinic_id=clinic_id,
-        email=normalized_email,
+        username=normalized_username,
         hashed_password=hash_password(password),
         full_name=normalized_name,
         role=role,
@@ -149,7 +149,7 @@ def ensure_staff_management_actor(actor: User, clinic_id: int) -> None:
 def create_staff_account(
     db: Session,
     actor: User,
-    email: str,
+    username: str,
     password: str,
     full_name: str,
     role: UserRole,
@@ -162,7 +162,7 @@ def create_staff_account(
     return create_user(
         db=db,
         clinic_id=actor.clinic_id,
-        email=email,
+        username=username,
         password=password,
         full_name=full_name,
         role=role,
@@ -286,12 +286,12 @@ def change_own_password(
     return user
 
 
-def authenticate_user(db: Session, email: str, password: str) -> User | None:
+def authenticate_user(db: Session, username: str, password: str) -> User | None:
     """Find an active user and verify the supplied credentials.
 
     Args:
         db: Request-scoped SQLAlchemy session.
-        email: Login email, normalized to lowercase before querying.
+        username: Login username, normalized to lowercase before querying.
         password: Plaintext password submitted by the user.
 
     Returns:
@@ -299,10 +299,10 @@ def authenticate_user(db: Session, email: str, password: str) -> User | None:
         account. The distinction is intentionally not exposed to callers.
     """
 
-    normalized_email = email.strip().lower()
+    normalized_username = username.strip().lower()
     user = db.scalar(
         select(User).where(
-            User.email == normalized_email,
+            User.username == normalized_username,
             User.is_active.is_(True),
         )
     )

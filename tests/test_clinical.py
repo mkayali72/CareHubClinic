@@ -52,7 +52,7 @@ def login_as(client: TestClient, user: User) -> None:
 
     response = client.post(
         "/login",
-        data={"email": user.email, "password": "Valid-Test-Password1"},
+        data={"username": user.username, "password": "Valid-Test-Password1"},
         follow_redirects=False,
     )
     assert response.status_code == 303
@@ -719,7 +719,7 @@ def test_phrase_template_is_shared_between_physicians_and_snapshotted(
     second_physician = create_user(
         db_session,
         clinic_id=physician.clinic_id,
-        email="second.physician@example.invalid",
+        username="second_physician",
         password="Valid-Test-Password1",
         full_name="Second Physician",
         role=UserRole.PHYSICIAN,

@@ -8,8 +8,9 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
+import app.initial_admin as initial_admin
 from app.models import AuditAction, AuditLog, User, UserRole
 from app.services.audit import (
     reject_audit_log_mutation,
@@ -35,7 +36,7 @@ def test_1_each_allowed_role_can_log_in(
     response = client.post(
         "/login",
         data={
-            "email": f"{role.value}@example.invalid",
+            "username": role.value,
             "password": "Valid-Test-Password1",
         },
         follow_redirects=False,
@@ -43,6 +44,26 @@ def test_1_each_allowed_role_can_log_in(
 
     assert response.status_code == 303
     assert response.headers["location"] == "/welcome"
+
+
+def test_fresh_database_gets_one_default_clinic_admin(
+    db_engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The first application initialization creates the documented admin once."""
+
+    session_factory = sessionmaker(bind=db_engine, expire_on_commit=False)
+    monkeypatch.setattr(initial_admin, "SessionLocal", session_factory)
+
+    assert initial_admin.ensure_initial_admin() is True
+    with session_factory() as session:
+        admin = session.scalar(select(User))
+        assert admin is not None
+        assert admin.username == "admin"
+        assert admin.role is UserRole.CLINIC_ADMIN
+        assert authenticate_user(session, "admin", "admin22446688") is admin
+
+    assert initial_admin.ensure_initial_admin() is False
 
 
 def test_2_authentication_and_admin_role_guards(
@@ -63,7 +84,7 @@ def test_2_authentication_and_admin_role_guards(
 
     login_response = client.post(
         "/login",
-        data={"email": non_admin.email, "password": "Valid-Test-Password1"},
+        data={"username": non_admin.username, "password": "Valid-Test-Password1"},
         follow_redirects=False,
     )
     assert login_response.status_code == 303
@@ -79,7 +100,7 @@ def test_8_session_expires_after_configured_timeout(
     login_response = short_lived_client.post(
         "/login",
         data={
-            "email": seeded_users[UserRole.CLINIC_ADMIN].email,
+            "username": seeded_users[UserRole.CLINIC_ADMIN].username,
             "password": "Valid-Test-Password1",
         },
         follow_redirects=False,
@@ -102,7 +123,7 @@ def test_9_logout_invalidates_the_previous_session_cookie(
     client.post(
         "/login",
         data={
-            "email": seeded_users[UserRole.CLINIC_ADMIN].email,
+            "username": seeded_users[UserRole.CLINIC_ADMIN].username,
             "password": "Valid-Test-Password1",
         },
         follow_redirects=False,
@@ -131,7 +152,7 @@ def test_staff_can_change_own_password_and_all_sessions_are_invalidated(
     user = seeded_users[UserRole.FRONT_DESK]
     login_response = client.post(
         "/login",
-        data={"email": user.email, "password": "Valid-Test-Password1"},
+        data={"username": user.username, "password": "Valid-Test-Password1"},
         follow_redirects=False,
     )
     assert login_response.status_code == 303
@@ -178,7 +199,7 @@ def test_staff_can_change_own_password_and_all_sessions_are_invalidated(
 
     new_login = client.post(
         "/login",
-        data={"email": user.email, "password": "Changed-Password-Valid2"},
+        data={"username": user.username, "password": "Changed-Password-Valid2"},
         follow_redirects=False,
     )
     assert new_login.status_code == 303
@@ -195,7 +216,7 @@ def test_own_password_change_rejects_wrong_current_and_weak_or_mismatched_new_pa
     user = seeded_users[UserRole.NURSE_MA]
     client.post(
         "/login",
-        data={"email": user.email, "password": "Valid-Test-Password1"},
+        data={"username": user.username, "password": "Valid-Test-Password1"},
         follow_redirects=False,
     )
     original_hash = user.hashed_password
@@ -253,7 +274,7 @@ def test_10_password_complexity_and_login_lockout(
         create_user(
             db=db_session,
             clinic_id=seeded_users[UserRole.CLINIC_ADMIN].clinic_id,
-            email="weak@example.invalid",
+            username="weak_user",
             password="weak",
             full_name="Weak Password",
             role=UserRole.FRONT_DESK,
@@ -262,7 +283,7 @@ def test_10_password_complexity_and_login_lockout(
     target = create_user(
         db=db_session,
         clinic_id=seeded_users[UserRole.CLINIC_ADMIN].clinic_id,
-        email="lockout@example.invalid",
+        username="lockout_user",
         password="Valid-Test-Password1",
         full_name="Lockout Test",
         role=UserRole.FRONT_DESK,
@@ -270,8 +291,8 @@ def test_10_password_complexity_and_login_lockout(
     db_session.commit()
 
     for _ in range(5):
-        assert authenticate_user(db_session, target.email, "Wrong-Password1") is None
-    assert authenticate_user(db_session, target.email, "Valid-Test-Password1") is None
+        assert authenticate_user(db_session, target.username, "Wrong-Password1") is None
+    assert authenticate_user(db_session, target.username, "Valid-Test-Password1") is None
     db_session.refresh(target)
     assert target.locked_until is not None
 
@@ -301,7 +322,7 @@ def test_13_unassigned_user_has_no_elevated_access(
     unassigned = create_user(
         db=db_session,
         clinic_id=seeded_users[UserRole.CLINIC_ADMIN].clinic_id,
-        email="unassigned@example.invalid",
+        username="unassigned",
         password="Valid-Test-Password1",
         full_name="Unassigned User",
     )
@@ -394,7 +415,7 @@ def test_20_create_update_delete_actions_write_audit_entries(
     target = create_user(
         db=db_session,
         clinic_id=actor.clinic_id,
-        email="audit-actions@example.invalid",
+        username="audit_actions",
         password="Valid-Test-Password1",
         full_name="Audit Actions",
         role=UserRole.FRONT_DESK,

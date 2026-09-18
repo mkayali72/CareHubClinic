@@ -547,7 +547,7 @@ class User(SoftDeleteMixin, Base):
     Fields:
         id: Internal staff account identifier.
         clinic_id: Clinic that owns the staff account.
-        email: Unique login identifier.
+        username: Unique login identifier, limited to 16 characters.
         hashed_password: Argon2 password hash.
         full_name: Name shown on the authenticated landing page and audit log.
         role: One of the five allowed UserRole values, or None while an account
@@ -562,7 +562,7 @@ class User(SoftDeleteMixin, Base):
 
     __tablename__ = "users"
     __table_args__ = (
-        UniqueConstraint("email", name="uq_users_email"),
+        UniqueConstraint("username", name="uq_users_username"),
     )
 
     id: Mapped[int] = mapped_column(
@@ -576,12 +576,12 @@ class User(SoftDeleteMixin, Base):
         index=True,
         comment="Clinic tenant that owns this staff account.",
     )
-    email: Mapped[str] = mapped_column(
-        String(320),
+    username: Mapped[str] = mapped_column(
+        String(16),
         nullable=False,
         unique=True,
         index=True,
-        comment="Lowercase email address used to authenticate the staff user.",
+        comment="Normalized short username used to authenticate the staff user.",
     )
     hashed_password: Mapped[str] = mapped_column(
         String(255),

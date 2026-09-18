@@ -21,7 +21,7 @@ def login_as(client: TestClient, user: User) -> None:
 
     response = client.post(
         "/login",
-        data={"email": user.email, "password": "Valid-Test-Password1"},
+        data={"username": user.username, "password": "Valid-Test-Password1"},
         follow_redirects=False,
     )
     assert response.status_code == 303

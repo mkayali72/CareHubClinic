@@ -92,52 +92,30 @@ before starting FastAPI, and PostgreSQL data is stored in the named
    `Ctrl+C`, or run `docker compose down`. The named database volume remains
    until it is explicitly removed with `docker compose down -v`.
 
-### Create the first login account
+### First login
 
-The application intentionally has no public registration page. On a fresh
-database, run the one-time bootstrap command after PostgreSQL is available.
-For the supported Docker Desktop setup, run it inside the application
-container:
+The application creates the first clinic and administrator automatically when
+it starts against a database that contains no users. The initial administrator
+credentials are:
 
-```bash
-docker compose up -d --build
-docker compose run --rm app python -m app.bootstrap_admin \
-  --email admin@example.invalid
+```text
+Username: admin
+Password: admin22446688
 ```
 
-Enter and confirm a password when prompted. The command creates a
-`clinic_admin` account, creates the first clinic when needed, and refuses to
-overwrite an existing account. If more than one clinic already exists, provide
-the intended clinic explicitly:
+Start the Docker Desktop stack, then open `http://localhost:8000/login` and
+sign in with those credentials. The username is plain text and may contain
+between 1 and 16 characters; it does not need to be an email address.
 
-```bash
-docker compose run --rm app python -m app.bootstrap_admin \
-  --email admin@example.invalid \
-  --clinic-id 1
-```
+Change the initial password immediately after signing in at
+`/account/password`. New and changed passwords must be at least 12 characters
+and include uppercase, lowercase, and numeric characters. The automatic
+initial account is created only when the database has no users, and never
+overwrites an existing account.
 
-Then open `/login` and sign in with that email and the password entered during
-bootstrap. Use a complete email address; the login form rejects values such as
-`admin`.
-
-If you prefer to run the command from macOS instead of Docker, install Python
-3.13 or newer, create a virtual environment, and install the pinned
-dependencies:
-
-```bash
-brew install python@3.13
-python3.13 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
-```
-
-With Docker PostgreSQL running, point the host command at the published
-`localhost` port. The Compose hostname `db` is only resolvable inside Docker:
-
-```bash
-DATABASE_URL=postgresql+psycopg://clinic:clinic@localhost:5432/obgyn \
-  .venv/bin/python -m app.bootstrap_admin \
-  --email admin@example.invalid
-```
+The initial values can be changed before first startup with
+`INITIAL_ADMIN_USERNAME` and `INITIAL_ADMIN_PASSWORD` in `.env`. Keep the
+database volume and its credentials private, especially outside development.
 
 ### Manage staff accounts
 
@@ -146,7 +124,7 @@ accounts** in the clinic administration navigation. Administrators can create
 active physician, nurse/MA, front desk, and billing clerk accounts, deactivate
 or reactivate accounts, and set a new password without viewing the previous
 password. New and reset passwords use the same 12-character complexity policy
-as the bootstrap account, and each account change is recorded in the audit log.
+as the initial account, and each account change is recorded in the audit log.
 
 If either service does not become healthy, inspect the startup output before
 restarting:
@@ -185,8 +163,8 @@ The migrations create the following foundational and patient tables:
 - **License** stores one clinic-scoped local subscription record with
   `status`, `expires_at`, `last_check_in_at`, and `grace_period_days`. It is the
   current placeholder for a future license-server response.
-- **User** represents a staff account with a clinic, email, Argon2 password
-  hash, full name, active status, creation timestamp, and exactly one of:
+- **User** represents a staff account with a clinic, short username, Argon2
+  password hash, full name, active status, creation timestamp, and exactly one of:
   `physician`, `nurse_ma`, `front_desk`, `billing_clerk`, or `clinic_admin`.
 - **AuditLog** is a generic, immutable lifecycle log that records the actor,
   action, entity type, entity ID, timestamp, and JSON details/diff.

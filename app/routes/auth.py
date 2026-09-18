@@ -56,7 +56,7 @@ def login_page(
 @router.post("/login")
 def login(
     request: Request,
-    email: str = Form(...),
+    username: str = Form(...),
     password: str = Form(...),
     db: Session = Depends(get_db),
 ) -> Response:
@@ -64,7 +64,7 @@ def login(
 
     Args:
         request: Incoming form request.
-        email: Submitted staff email.
+        username: Submitted staff username.
         password: Submitted plaintext password, never persisted.
         db: Request-scoped SQLAlchemy session.
 
@@ -73,13 +73,13 @@ def login(
         credentials render a safe error without revealing which field failed.
     """
 
-    user = authenticate_user(db, email, password)
+    user = authenticate_user(db, username, password)
     if user is None:
         if request.headers.get("HX-Request") == "true":
             return templates.TemplateResponse(
                 request=request,
                 name="partials/login_feedback.html",
-                context={"error": "Email or password is incorrect."},
+                context={"error": "Username or password is incorrect."},
                 status_code=401,
             )
         return templates.TemplateResponse(
@@ -87,7 +87,7 @@ def login(
             name="login.html",
             context={
                 "page_title": "Sign in",
-                "error": "Email or password is incorrect.",
+                "error": "Username or password is incorrect.",
             },
             status_code=401,
         )

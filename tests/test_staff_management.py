@@ -13,7 +13,7 @@ def login_as(client: TestClient, user: User, password: str = "Valid-Test-Passwor
 
     response = client.post(
         "/login",
-        data={"email": user.email, "password": password},
+        data={"username": user.username, "password": password},
         follow_redirects=False,
     )
     assert response.status_code == 303
@@ -31,7 +31,7 @@ def test_clinic_admin_can_create_staff_and_staff_can_log_in(
     response = client.post(
         "/admin/staff",
         data={
-            "email": "new.physician@example.invalid",
+            "username": "new_physician",
             "full_name": "New Physician",
             "role": UserRole.PHYSICIAN.value,
             "password": "New-Physician-Password1",
@@ -42,7 +42,7 @@ def test_clinic_admin_can_create_staff_and_staff_can_log_in(
 
     assert response.status_code == 303
     created = db_session.scalar(
-        select(User).where(User.email == "new.physician@example.invalid")
+        select(User).where(User.username == "new_physician")
     )
     assert created is not None
     assert created.is_active is True
@@ -79,7 +79,7 @@ def test_only_clinic_admin_can_manage_staff(
     response = client.post(
         "/admin/staff",
         data={
-            "email": "blocked@example.invalid",
+            "username": "blocked_user",
             "full_name": "Blocked",
             "role": UserRole.NURSE_MA.value,
             "password": "Valid-Test-Password1",
@@ -102,7 +102,7 @@ def test_staff_management_is_clinic_scoped(
     other_staff = create_user(
         db=db_session,
         clinic_id=other_clinic.id,
-        email="other.staff@example.invalid",
+        username="other_staff",
         password="Valid-Test-Password1",
         full_name="Other Staff",
         role=UserRole.FRONT_DESK,
@@ -113,7 +113,7 @@ def test_staff_management_is_clinic_scoped(
     login_as(client, admin)
     page = client.get("/admin/staff")
     assert page.status_code == 200
-    assert "other.staff@example.invalid" not in page.text
+    assert "other_staff" not in page.text
 
     response = client.post(
         f"/admin/staff/{other_staff.id}/deactivate",
@@ -158,7 +158,7 @@ def test_admin_can_deactivate_reactivate_and_reset_staff_password(
     client.post("/logout", follow_redirects=False)
     assert client.post(
         "/login",
-        data={"email": target.email, "password": "Valid-Test-Password1"},
+        data={"username": target.username, "password": "Valid-Test-Password1"},
         follow_redirects=False,
     ).status_code == 401
 
@@ -198,7 +198,7 @@ def test_admin_can_deactivate_reactivate_and_reset_staff_password(
     client.post("/logout", follow_redirects=False)
     assert client.post(
         "/login",
-        data={"email": target.email, "password": "Valid-Test-Password1"},
+        data={"username": target.username, "password": "Valid-Test-Password1"},
         follow_redirects=False,
     ).status_code == 401
     login_as(client, target, "Reset-Password-Valid1")
@@ -217,7 +217,7 @@ def test_staff_password_validation_does_not_create_an_account(
     response = client.post(
         "/admin/staff",
         data={
-            "email": "weak-password@example.invalid",
+            "username": "weak_password",
             "full_name": "Weak Password",
             "role": UserRole.BILLING_CLERK.value,
             "password": "short",
@@ -228,5 +228,5 @@ def test_staff_password_validation_does_not_create_an_account(
     assert response.status_code == 422
     assert "short" not in response.text
     assert db_session.scalar(
-        select(User).where(User.email == "weak-password@example.invalid")
+        select(User).where(User.username == "weak_password")
     ) is None

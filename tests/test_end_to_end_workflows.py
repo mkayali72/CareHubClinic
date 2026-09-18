@@ -46,7 +46,7 @@ def login_as(client: TestClient, user: User) -> None:
 
     response = client.post(
         "/login",
-        data={"email": user.email, "password": PASSWORD},
+        data={"username": user.username, "password": PASSWORD},
         follow_redirects=False,
     )
     assert response.status_code == 303

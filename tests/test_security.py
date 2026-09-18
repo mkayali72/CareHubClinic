@@ -69,7 +69,7 @@ def login_with_csrf(client: TestClient, user: User) -> str:
     response = client.post(
         "/login",
         data={
-            "email": user.email,
+            "username": user.username,
             "password": "Valid-Test-Password1",
             "_csrf_token": token,
         },
@@ -90,14 +90,14 @@ def test_csrf_rejects_missing_tokens_and_accepts_session_bound_tokens(
     token = extract_csrf_token(login_page)
     missing = secure_client.post(
         "/login",
-        data={"email": user.email, "password": "Valid-Test-Password1"},
+        data={"username": user.username, "password": "Valid-Test-Password1"},
     )
     assert missing.status_code == 403
 
     login = secure_client.post(
         "/login",
         data={
-            "email": user.email,
+            "username": user.username,
             "password": "Valid-Test-Password1",
             "_csrf_token": token,
         },
@@ -168,7 +168,7 @@ def test_login_endpoint_locks_out_repeated_failed_attempts(
         response = secure_client.post(
             "/login",
             data={
-                "email": user.email,
+                "username": user.username,
                 "password": "Wrong-Password1",
                 "_csrf_token": token,
             },
@@ -177,7 +177,7 @@ def test_login_endpoint_locks_out_repeated_failed_attempts(
     correct_while_locked = secure_client.post(
         "/login",
         data={
-            "email": user.email,
+            "username": user.username,
             "password": "Valid-Test-Password1",
             "_csrf_token": token,
         },
@@ -226,14 +226,14 @@ def test_36_error_conditions_do_not_log_or_return_secrets(
             csrf = client.post(
                 "/login",
                 data={
-                    "email": "patient@example.invalid",
+                    "username": "unknown_user",
                     "password": secret_values[0],
                 },
             )
             authentication = client.post(
                 "/login",
                 data={
-                    "email": "patient@example.invalid",
+                    "username": "unknown_user",
                     "password": secret_values[0],
                     "_csrf_token": extract_csrf_token(client.get("/login")),
                 },
@@ -264,7 +264,7 @@ def test_inactivity_timeout_expires_authenticated_session(
     user = seeded_users[UserRole.PHYSICIAN]
     response = client.post(
         "/login",
-        data={"email": user.email, "password": "Valid-Test-Password1"},
+        data={"username": user.username, "password": "Valid-Test-Password1"},
         follow_redirects=False,
     )
     assert response.status_code == 303
@@ -341,7 +341,7 @@ def test_xss_payload_is_escaped_and_no_unsafe_template_filter_exists(
     db_session.commit()
     login = client.post(
         "/login",
-        data={"email": user.email, "password": "Valid-Test-Password1"},
+        data={"username": user.username, "password": "Valid-Test-Password1"},
         follow_redirects=False,
     )
     assert login.status_code == 303
@@ -384,7 +384,7 @@ def test_37_phi_is_absent_from_urls_across_rendered_routes(
     db_session.commit()
     assert client.post(
         "/login",
-        data={"email": user.email, "password": "Valid-Test-Password1"},
+        data={"username": user.username, "password": "Valid-Test-Password1"},
         follow_redirects=False,
     ).status_code == 303
 
@@ -588,7 +588,7 @@ def test_patient_phi_does_not_appear_in_generated_url_values(
     db_session.commit()
     assert client.post(
         "/login",
-        data={"email": user.email, "password": "Valid-Test-Password1"},
+        data={"username": user.username, "password": "Valid-Test-Password1"},
         follow_redirects=False,
     ).status_code == 303
     response = client.get("/patients")

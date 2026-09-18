@@ -43,7 +43,7 @@ def _staff_context(
             select(User)
             .where(User.clinic_id == current_user.clinic_id)
             .execution_options(include_deleted=True)
-            .order_by(User.full_name, User.email)
+            .order_by(User.full_name, User.username)
         )
     )
     return {
@@ -90,7 +90,7 @@ def staff_accounts(
 @router.post("/admin/staff", response_class=HTMLResponse)
 def create_staff(
     request: Request,
-    email: str = Form(...),
+    username: str = Form(...),
     full_name: str = Form(...),
     role: str = Form(...),
     password: str = Form(...),
@@ -100,7 +100,7 @@ def create_staff(
 ) -> Response:
     """Create one active staff account after validating the submitted form."""
 
-    form_values = {"email": email, "full_name": full_name, "role": role}
+    form_values = {"username": username, "full_name": full_name, "role": role}
     try:
         selected_role = UserRole(role)
         if selected_role not in STAFF_ROLES:
@@ -110,7 +110,7 @@ def create_staff(
         create_staff_account(
             db,
             current_user,
-            email=email,
+            username=username,
             password=password,
             full_name=full_name,
             role=selected_role,
@@ -119,7 +119,7 @@ def create_staff(
     except (ValueError, IntegrityError) as error:
         db.rollback()
         message = (
-            "That email address is already in use."
+            "That username is already in use."
             if isinstance(error, IntegrityError)
             else str(error)
         )

@@ -12,6 +12,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import HTMLResponse, JSONResponse, Response
 
 from app.config import settings
+from app.initial_admin import ensure_initial_admin
 from app.services.licensing import (
     LicenseWriteBlocked,
     _blocked_response,
@@ -47,8 +48,10 @@ async def _license_scheduler() -> None:
 
 @asynccontextmanager
 async def app_lifespan(application: FastAPI):
-    """Start and stop the in-process license check scheduler."""
+    """Initialize the first clinic and start the license check scheduler."""
 
+    if not application.dependency_overrides:
+        await asyncio.to_thread(ensure_initial_admin)
     task = asyncio.create_task(_license_scheduler())
     application.state.license_scheduler_task = task
     try:

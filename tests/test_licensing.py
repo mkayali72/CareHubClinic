@@ -38,7 +38,7 @@ def login_as(client: TestClient, user: User) -> None:
 
     response = client.post(
         "/login",
-        data={"email": user.email, "password": "Valid-Test-Password1"},
+        data={"username": user.username, "password": "Valid-Test-Password1"},
         follow_redirects=False,
     )
     assert response.status_code == 303
@@ -695,7 +695,7 @@ def test_33_new_physician_is_allowed_because_no_seat_count_rule_is_implemented(
     physician = create_user(
         db_session,
         admin.clinic_id,
-        "additional-physician@example.invalid",
+        "additional_phys",
         "Valid-Test-Password1",
         "Additional Physician",
         UserRole.PHYSICIAN,

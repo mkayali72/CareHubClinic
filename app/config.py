@@ -35,6 +35,8 @@ class Settings:
     login_max_failed_attempts: int
     login_lockout_seconds: int
     license_check_interval_seconds: int
+    initial_admin_username: str
+    initial_admin_password: str
 
 
 def normalize_database_url(database_url: str) -> str:
@@ -115,6 +117,11 @@ def get_settings() -> Settings:
         license_check_interval_seconds=positive_int(
             "LICENSE_CHECK_INTERVAL_SECONDS",
             "300",
+        ),
+        initial_admin_username=os.getenv("INITIAL_ADMIN_USERNAME", "admin"),
+        initial_admin_password=os.getenv(
+            "INITIAL_ADMIN_PASSWORD",
+            "admin22446688",
         ),
     )
 
