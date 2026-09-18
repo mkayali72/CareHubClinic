@@ -35,7 +35,7 @@
           <form class="mt-5 grid gap-4 sm:grid-cols-2" method="post" action="/schedule/walk-ins?date={{ selected_date.isoformat() }}&view={{ view_mode }}">
             <input class="rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-sm sm:col-span-2" name="name" placeholder="Patient name" required />
             <input class="rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-sm" type="date" name="date_of_birth" required />
-            <input class="rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-sm" name="phone" type="tel" inputmode="numeric" pattern="\+?[0-9][0-9 ()-]*" placeholder="Phone (optional)" />
+            <input class="rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-sm" name="phone" type="tel" inputmode="numeric" pattern="\+?[0-9][0-9 ()-]*" data-input-filter="phone" placeholder="Phone (optional)" />
             <select class="rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-sm" name="doctor_id" required>{% for doctor in doctors %}<option value="{{ doctor.id }}">{{ doctor.full_name }}</option>{% endfor %}</select>
             <select class="rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-sm" name="appointment_type_id" required>{% for appointment_type in appointment_types %}<option value="{{ appointment_type.id }}">{{ appointment_type.name }}</option>{% endfor %}</select>
             <button class="rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-700 sm:col-span-2" type="submit">Check in walk-in</button>

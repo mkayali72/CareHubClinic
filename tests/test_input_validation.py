@@ -8,7 +8,11 @@ from fastapi import HTTPException
 from app.models import VisitType
 from app.routes.scheduling import parse_scheduled_at, parse_selected_date
 from app.services.clinical import normalize_visit_sections
-from app.services.input_validation import validate_blood_pressure, validate_phone
+from app.services.input_validation import (
+    validate_blood_pressure,
+    validate_numeric_text,
+    validate_phone,
+)
 
 
 def test_phone_validation_accepts_numeric_international_formatting() -> None:
@@ -49,6 +53,23 @@ def test_clinical_numeric_readings_reject_non_finite_and_text_values() -> None:
             vitals={"weight_kg": "nan"},
             prenatal_data={"fetal_heart_tones": "145 bpm"},
         )
+
+
+@pytest.mark.parametrize("value", ["70kg", "1e3", "-4", "12 bpm", "abc"])
+def test_numeric_text_rejects_non_numeric_form_values(value: str) -> None:
+    """Numeric form values cannot contain units, signs, exponents, or letters."""
+
+    with pytest.raises(ValueError):
+        validate_numeric_text(value, field_name="Weight")
+
+
+def test_numeric_text_supports_decimal_and_integer_fields() -> None:
+    """Decimal readings and whole-number readings use the same strict validator."""
+
+    assert validate_numeric_text("70.5", field_name="Weight") == "70.5"
+    assert validate_numeric_text("145", field_name="Fetal heart tones", integer=True) == "145"
+    with pytest.raises(ValueError):
+        validate_numeric_text("145.5", field_name="Fetal heart tones", integer=True)
 
 
 def test_date_and_datetime_parsers_require_their_matching_shapes() -> None:

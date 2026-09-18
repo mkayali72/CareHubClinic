@@ -6,6 +6,8 @@ import re
 
 PHONE_PATTERN = re.compile(r"^\+?[0-9][0-9 ()-]*$")
 BLOOD_PRESSURE_PATTERN = re.compile(r"^[0-9]{2,3}\s*/\s*[0-9]{2,3}$")
+DECIMAL_NUMBER_PATTERN = re.compile(r"^(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)$")
+INTEGER_NUMBER_PATTERN = re.compile(r"^[0-9]+$")
 
 
 def validate_phone(value: str, *, field_name: str = "Phone") -> str:
@@ -38,4 +40,30 @@ def validate_blood_pressure(value: str) -> str:
         return ""
     if not BLOOD_PRESSURE_PATTERN.fullmatch(normalized):
         raise ValueError("Blood pressure must contain two numeric readings separated by '/'.")
+    return normalized
+
+
+def validate_numeric_text(
+    value: object,
+    *,
+    field_name: str = "Number",
+    integer: bool = False,
+    allow_blank: bool = True,
+) -> str:
+    """Validate a non-negative decimal or integer form value.
+
+    This deliberately rejects letters, signs, whitespace inside the value, and
+    exponent notation. Browser controls are helpful, but this remains the
+    authoritative check for direct or tampered requests.
+    """
+
+    normalized = "" if value is None else str(value).strip()
+    if not normalized:
+        if allow_blank:
+            return ""
+        raise ValueError(f"{field_name} is required.")
+    pattern = INTEGER_NUMBER_PATTERN if integer else DECIMAL_NUMBER_PATTERN
+    if not pattern.fullmatch(normalized):
+        kind = "whole number" if integer else "number"
+        raise ValueError(f"{field_name} must be a {kind}.")
     return normalized

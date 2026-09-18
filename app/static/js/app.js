@@ -80,6 +80,32 @@
     }
   }
 
+  function filterInputValue(field) {
+    if (!field || typeof field.value !== "string") return;
+    if (field.dataset.inputFilter === "phone") {
+      field.value = field.value
+        .replace(/[^\d+ ()-]/g, "")
+        .replace(/(?!^)\+/g, "");
+      return;
+    }
+    if (field.dataset.inputFilter === "blood-pressure") {
+      field.value = field.value.replace(/[^0-9/ ]/g, "");
+      return;
+    }
+    if (field.type === "number") {
+      const decimal = field.step && field.step !== "1";
+      const cleaned = field.value.replace(/[^0-9.]/g, "");
+      if (!decimal) {
+        field.value = cleaned.replace(/\./g, "");
+        return;
+      }
+      const firstDot = cleaned.indexOf(".");
+      field.value = firstDot < 0
+        ? cleaned
+        : `${cleaned.slice(0, firstDot + 1)}${cleaned.slice(firstDot + 1).replace(/\./g, "")}`;
+    }
+  }
+
   function openMenu() {
     if (!menu || !backdrop) return;
     backdrop.hidden = false;
@@ -124,6 +150,10 @@
   document.querySelectorAll("[data-idempotency-form]").forEach((form) => {
     const field = form.querySelector("[data-idempotency-key]");
     if (field && !field.value) field.value = requestId();
+  });
+
+  document.addEventListener("input", (event) => {
+    filterInputValue(event.target);
   });
 
   menuButton?.addEventListener("click", openMenu);

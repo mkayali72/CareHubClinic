@@ -30,7 +30,7 @@ from app.models import (
     VisitType,
 )
 from app.services.audit import record_audit_event
-from app.services.input_validation import validate_blood_pressure
+from app.services.input_validation import validate_blood_pressure, validate_numeric_text
 
 CLINICAL_ROLES = (
     UserRole.PHYSICIAN,
@@ -181,7 +181,7 @@ def _number(value: Any) -> float | None:
     if value is None or value == "":
         return None
     try:
-        parsed = float(value)
+        parsed = float(validate_numeric_text(value, field_name="Clinical value"))
     except (TypeError, ValueError) as error:
         raise ValueError(f"Invalid numeric clinical value: {value}") from error
     if not math.isfinite(parsed):
@@ -197,7 +197,7 @@ def _numeric_text(value: Any, field_name: str) -> str:
     if value is None or str(value).strip() == "":
         return ""
     try:
-        _number(value)
+        validate_numeric_text(value, field_name=field_name, integer=True)
     except ValueError as error:
         raise ValueError(f"{field_name} must be a number.") from error
     return str(value).strip()
