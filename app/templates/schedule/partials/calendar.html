@@ -1,3 +1,8 @@
+{% if view_mode == "week" %}
+  {% include "schedule/partials/calendar_week.html" %}
+{% elif view_mode == "month" %}
+  {% include "schedule/partials/calendar_month.html" %}
+{% else %}
 <div class="flex flex-wrap items-center justify-between gap-4">
   <div>
     <p class="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">Calendar grid</p>
@@ -58,8 +63,23 @@
         </div>
         {% for column in calendar_columns %}
           <div class="relative h-[720px] border-r border-slate-200 last:border-r-0" style="background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 29px, #e2e8f0 30px, transparent 31px, transparent 59px, #e2e8f0 60px);">
+            {% if can_create and patients and appointment_types %}
+              {% for hour in range(7, 19) %}
+                {% for minute in [0, 30] %}
+                  <button
+                    type="button"
+                    class="absolute left-0 right-0 z-0 h-[30px] border-b border-transparent text-left transition hover:border-indigo-200 hover:bg-indigo-50/70"
+                    style="top: {{ ((hour - 7) * 60) + minute }}px;"
+                    data-schedule-slot
+                    data-doctor-id="{{ column.doctor.id }}"
+                    data-scheduled-at="{{ '%sT%02d:%02d'|format(selected_date.isoformat(), hour, minute) }}"
+                    aria-label="Book appointment on {{ selected_date.strftime('%B %-d') }} at {{ '%02d:%02d'|format(hour, minute) }} with {{ column.doctor.full_name }}"
+                  ></button>
+                {% endfor %}
+              {% endfor %}
+            {% endif %}
             {% for item in column.appointments %}
-              <a href="{% if user.role.value in ['physician', 'nurse_ma', 'clinic_admin'] %}/visits/patients/{{ item.appointment.patient_id }}{% else %}/patients/{{ item.appointment.patient_id }}{% endif %}" class="absolute left-1.5 right-1.5 overflow-hidden rounded-xl border border-indigo-300 bg-indigo-100 px-2.5 py-2 text-left shadow-sm transition hover:border-indigo-500 hover:bg-indigo-200" style="top: {{ item.top }}px; height: {{ item.height }}px;">
+              <a href="{% if user.role.value in ['physician', 'nurse_ma', 'clinic_admin'] %}/visits/patients/{{ item.appointment.patient_id }}{% else %}/patients/{{ item.appointment.patient_id }}{% endif %}" class="absolute left-1.5 right-1.5 z-10 overflow-hidden rounded-xl border border-indigo-300 bg-indigo-100 px-2.5 py-2 text-left shadow-sm transition hover:border-indigo-500 hover:bg-indigo-200" style="top: {{ item.top }}px; height: {{ item.height }}px;">
                 <p class="truncate text-xs font-bold text-indigo-950">{{ item.appointment.scheduled_at.strftime("%H:%M") }} · {{ item.appointment.patient.name }}</p>
                 <p class="mt-1 truncate text-[11px] text-indigo-800">{{ item.appointment.appointment_type.name }} · {{ item.appointment.status.value|replace("_", " ")|title }}</p>
               </a>
@@ -74,4 +94,5 @@
     <p class="font-semibold text-slate-800">No physician calendars are configured.</p>
     <p class="mt-1 text-sm text-slate-500">Create a physician user before adding appointments.</p>
   </div>
+{% endif %}
 {% endif %}

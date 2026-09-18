@@ -1,6 +1,7 @@
 """Scheduling calendar, queue, appointment, and lookup routes."""
 
-from datetime import date, datetime
+from calendar import monthrange
+from datetime import date, datetime, timedelta
 import re
 from typing import Any
 
@@ -35,6 +36,7 @@ from app.services.scheduling import (
     get_appointment_for_user,
     get_appointment_types,
     get_appointments_for_date,
+    get_appointments_for_range,
     get_physicians,
     get_schedulable_patients,
     serialize_appointment,
@@ -58,6 +60,74 @@ def parse_selected_date(value: str | None) -> date:
         return date.fromisoformat(value)
     except ValueError as error:
         raise HTTPException(status_code=422, detail="Date must use YYYY-MM-DD.") from error
+
+
+def parse_view(value: str | None) -> str:
+    """Validate the requested schedule or queue view mode."""
+
+    view = (value or "day").strip().lower()
+    if view not in {"day", "week", "month"}:
+        raise HTTPException(status_code=422, detail="View must be day, week, or month.")
+    return view
+
+
+def _period_details(selected_date: date, view_mode: str) -> dict[str, Any]:
+    """Return navigation and display dates for one calendar view."""
+
+    if view_mode == "day":
+        start = selected_date
+        end = selected_date
+        previous = selected_date - timedelta(days=1)
+        next_date = selected_date + timedelta(days=1)
+        display_dates = [selected_date]
+        period_label = selected_date.strftime("%A, %B %-d, %Y")
+    elif view_mode == "week":
+        start = selected_date - timedelta(days=selected_date.weekday())
+        end = start + timedelta(days=6)
+        previous = start - timedelta(days=7)
+        next_date = start + timedelta(days=7)
+        display_dates = [start + timedelta(days=index) for index in range(7)]
+        period_label = f"{start.strftime('%b %-d')} – {end.strftime('%b %-d, %Y')}"
+    else:
+        start = selected_date.replace(day=1)
+        end = selected_date.replace(day=monthrange(selected_date.year, selected_date.month)[1])
+        previous_month = (start - timedelta(days=1)).replace(day=1)
+        next_month = (end + timedelta(days=1)).replace(day=1)
+        previous = previous_month
+        next_date = next_month
+        grid_start = start - timedelta(days=start.weekday())
+        grid_end = end + timedelta(days=6 - end.weekday())
+        display_dates = [
+            grid_start + timedelta(days=index)
+            for index in range((grid_end - grid_start).days + 1)
+        ]
+        period_label = selected_date.strftime("%B %Y")
+
+    return {
+        "period_start": start,
+        "period_end": end,
+        "previous_date": previous,
+        "next_date": next_date,
+        "period_dates": display_dates,
+        "period_label": period_label,
+        "range_start": display_dates[0],
+        "range_end": display_dates[-1] + timedelta(days=1),
+    }
+
+
+def _appointments_by_date(
+    period_dates: list[date],
+    appointments: list[Appointment],
+) -> list[dict[str, Any]]:
+    """Group appointments into display-day dictionaries for Jinja templates."""
+
+    grouped: dict[date, list[Appointment]] = {period_date: [] for period_date in period_dates}
+    for appointment in appointments:
+        grouped.setdefault(appointment.scheduled_at.date(), []).append(appointment)
+    return [
+        {"date": period_date, "appointments": grouped.get(period_date, [])}
+        for period_date in period_dates
+    ]
 
 
 def parse_scheduled_at(value: str) -> datetime:
@@ -123,19 +193,22 @@ def _schedule_context(
     user: User,
     selected_date: date,
     patient_id: int | None = None,
+    view_mode: str = "day",
 ) -> dict[str, Any]:
-    """Build shared calendar and queue context for one clinic date."""
+    """Build shared calendar and queue context for one schedule view."""
 
+    period = _period_details(selected_date, view_mode)
     doctors = get_physicians(db, user.clinic_id)
     calendar_doctors = (
         [doctor for doctor in doctors if doctor.id == user.id]
         if user.role is UserRole.PHYSICIAN
         else doctors
     )
-    appointments = get_appointments_for_date(
+    appointments = get_appointments_for_range(
         db,
         user,
-        selected_date,
+        period["range_start"],
+        period["range_end"],
         doctor_id=_queue_doctor_id(user),
     )
     queue_appointments = appointments
@@ -161,16 +234,25 @@ def _schedule_context(
         "page_title": "Schedule",
         "user": user,
         "selected_date": selected_date,
-        "previous_date": selected_date.fromordinal(selected_date.toordinal() - 1),
-        "next_date": selected_date.fromordinal(selected_date.toordinal() + 1),
+        "view_mode": view_mode,
+        **period,
         "doctors": calendar_doctors,
-        "calendar_columns": calendar_columns(calendar_doctors, appointments),
-        "queue_appointments": queue_appointments,
+        "calendar_columns": (
+            calendar_columns(calendar_doctors, appointments)
+            if view_mode == "day"
+            else []
+        ),
+        "calendar_period_days": _appointments_by_date(period["period_dates"], appointments),
+        "queue_appointments": (
+            appointments
+            if view_mode == "day"
+            else _appointments_by_date(period["period_dates"], appointments)
+        ),
         "queue_visit_ids": _queue_visit_ids(
             db,
             user,
             selected_date,
-            queue_appointments,
+            appointments if view_mode == "day" else [],
         ),
         "patients": get_schedulable_patients(db, user.clinic_id),
         "appointment_types": get_appointment_types(db, user.clinic_id),
@@ -186,25 +268,42 @@ def _queue_context(
     db: Session,
     user: User,
     selected_date: date,
+    view_mode: str = "day",
 ) -> dict[str, Any]:
     """Build context for the full queue page and its htmx rows."""
 
-    appointments = get_appointments_for_date(
+    period = _period_details(selected_date, view_mode)
+    appointments = get_appointments_for_range(
         db,
         user,
-        selected_date,
+        period["range_start"],
+        period["range_end"],
         doctor_id=_queue_doctor_id(user),
     )
+    period_days = _appointments_by_date(period["period_dates"], appointments)
+    for period_day in period_days:
+        period_day["visit_ids"] = _queue_visit_ids(
+            db,
+            user,
+            period_day["date"],
+            period_day["appointments"],
+        )
     return {
         "request": request,
         "app_name": settings.app_name,
         "page_title": "Today's Queue" if selected_date == date.today() else "Queue",
         "user": user,
         "selected_date": selected_date,
-        "previous_date": selected_date.fromordinal(selected_date.toordinal() - 1),
-        "next_date": selected_date.fromordinal(selected_date.toordinal() + 1),
+        "view_mode": view_mode,
+        **period,
         "queue_appointments": appointments,
-        "queue_visit_ids": _queue_visit_ids(db, user, selected_date, appointments),
+        "queue_period_days": period_days,
+        "queue_visit_ids": _queue_visit_ids(
+            db,
+            user,
+            selected_date,
+            appointments if view_mode == "day" else [],
+        ),
         "doctors": get_physicians(db, user.clinic_id),
         "appointment_types": get_appointment_types(db, user.clinic_id),
         "can_create": user.role in SCHEDULING_WRITE_ROLES,
@@ -227,6 +326,7 @@ def schedule_page(
     request: Request,
     selected_date: str | None = Query(default=None, alias="date"),
     patient_id: int | None = Query(default=None),
+    view: str | None = Query(default="day"),
     current_user: User = Depends(require_roles(*SCHEDULING_ROLES)),
     db: Session = Depends(get_db),
 ) -> Response:
@@ -241,6 +341,7 @@ def schedule_page(
             current_user,
             parse_selected_date(selected_date),
             patient_id,
+            parse_view(view),
         ),
     )
 
@@ -249,6 +350,7 @@ def schedule_page(
 def schedule_grid(
     request: Request,
     selected_date: str | None = Query(default=None, alias="date"),
+    view: str | None = Query(default="day"),
     current_user: User = Depends(require_roles(*SCHEDULING_ROLES)),
     db: Session = Depends(get_db),
 ) -> Response:
@@ -259,6 +361,7 @@ def schedule_grid(
         db,
         current_user,
         parse_selected_date(selected_date),
+        view_mode=parse_view(view),
     )
     return templates.TemplateResponse(
         request=request,
@@ -271,6 +374,7 @@ def schedule_grid(
 def queue_page(
     request: Request,
     selected_date: str | None = Query(default=None, alias="date"),
+    view: str | None = Query(default="day"),
     current_user: User = Depends(require_roles(*SCHEDULING_ROLES)),
     db: Session = Depends(get_db),
 ) -> Response:
@@ -284,6 +388,7 @@ def queue_page(
             db,
             current_user,
             parse_selected_date(selected_date),
+            parse_view(view),
         ),
     )
 
@@ -292,6 +397,7 @@ def queue_page(
 def queue_rows(
     request: Request,
     selected_date: str | None = Query(default=None, alias="date"),
+    view: str | None = Query(default="day"),
     current_user: User = Depends(require_roles(*SCHEDULING_ROLES)),
     db: Session = Depends(get_db),
 ) -> Response:
@@ -305,6 +411,7 @@ def queue_rows(
             db,
             current_user,
             parse_selected_date(selected_date),
+            parse_view(view),
         ),
     )
 
@@ -337,12 +444,16 @@ def create_appointment_route(
     scheduled_at: str = Form(...),
     duration_minutes: int = Form(0),
     client_request_id: str | None = Form(default=None),
+    selected_date: str | None = Query(default=None, alias="date"),
+    view: str | None = Query(default="day"),
     current_user: User = Depends(require_roles(*SCHEDULING_WRITE_ROLES)),
     db: Session = Depends(get_db),
 ) -> Response:
     """Create an appointment for an existing patient."""
 
     parsed_scheduled_at = parse_scheduled_at(scheduled_at)
+    render_date = parse_selected_date(selected_date) if selected_date else parsed_scheduled_at.date()
+    render_view = parse_view(view)
     client_request_id = client_request_id.strip() if client_request_id else None
     if client_request_id and len(client_request_id) > 128:
         raise HTTPException(status_code=422, detail="The client request ID is too long.")
@@ -364,11 +475,15 @@ def create_appointment_route(
                         request,
                         db,
                         current_user,
-                        existing.scheduled_at.date(),
+                        render_date,
+                        view_mode=render_view,
                     ),
                 )
             return RedirectResponse(
-                url=f"/schedule?date={existing.scheduled_at.date().isoformat()}",
+                url=(
+                    f"/schedule?date={existing.scheduled_at.date().isoformat()}"
+                    f"&view={render_view}"
+                ),
                 status_code=303,
             )
     try:
@@ -395,11 +510,15 @@ def create_appointment_route(
                 request,
                 db,
                 current_user,
-                parsed_scheduled_at.date(),
+                render_date,
+                view_mode=render_view,
             ),
         )
     return RedirectResponse(
-        url=f"/schedule?date={parsed_scheduled_at.date().isoformat()}",
+        url=(
+            f"/schedule?date={parsed_scheduled_at.date().isoformat()}"
+            f"&view={render_view}"
+        ),
         status_code=303,
     )
 
@@ -412,6 +531,8 @@ def create_walk_in_route(
     phone: str = Form(""),
     doctor_id: int = Form(...),
     appointment_type_id: int = Form(...),
+    selected_date: str | None = Query(default=None, alias="date"),
+    view: str | None = Query(default="day"),
     current_user: User = Depends(require_roles(*SCHEDULING_WRITE_ROLES)),
     db: Session = Depends(get_db),
 ) -> Response:
@@ -432,13 +553,24 @@ def create_walk_in_route(
     except (PermissionError, ValueError) as error:
         db.rollback()
         _raise_service_error(error)
+    render_date = parse_selected_date(selected_date) if selected_date else date.today()
+    render_view = parse_view(view)
     if request.headers.get("HX-Request") == "true":
         return templates.TemplateResponse(
             request=request,
             name="schedule/partials/queue_rows.html",
-            context=_queue_context(request, db, current_user, date.today()),
+            context=_queue_context(
+                request,
+                db,
+                current_user,
+                render_date,
+                render_view,
+            ),
         )
-    return RedirectResponse(url="/queue", status_code=303)
+    return RedirectResponse(
+        url=f"/queue?date={render_date.isoformat()}&view={render_view}",
+        status_code=303,
+    )
 
 
 @router.post("/schedule/appointments/{appointment_id}/edit", response_class=HTMLResponse)
@@ -509,14 +641,22 @@ def cancel_appointment_route(
     except (PermissionError, ValueError) as error:
         db.rollback()
         _raise_service_error(error)
+    render_date = parse_selected_date(request.query_params.get("date")) if request.query_params.get("date") else appointment_date
+    render_view = parse_view(request.query_params.get("view"))
     if request.headers.get("HX-Request") == "true":
         return templates.TemplateResponse(
             request=request,
             name="schedule/partials/queue_rows.html",
-            context=_queue_context(request, db, current_user, appointment_date),
+            context=_queue_context(
+                request,
+                db,
+                current_user,
+                render_date,
+                render_view,
+            ),
         )
     return RedirectResponse(
-        url=f"/queue?date={appointment_date.isoformat()}",
+        url=f"/queue?date={appointment_date.isoformat()}&view={render_view}",
         status_code=303,
     )
 
@@ -539,14 +679,29 @@ def advance_status_route(
     except (PermissionError, ValueError) as error:
         db.rollback()
         _raise_service_error(error)
+    render_date = (
+        parse_selected_date(request.query_params.get("date"))
+        if request.query_params.get("date")
+        else appointment.scheduled_at.date()
+    )
+    render_view = parse_view(request.query_params.get("view"))
     if request.headers.get("HX-Request") == "true":
         return templates.TemplateResponse(
             request=request,
             name="schedule/partials/queue_rows.html",
-            context=_queue_context(request, db, current_user, appointment.scheduled_at.date()),
+            context=_queue_context(
+                request,
+                db,
+                current_user,
+                render_date,
+                render_view,
+            ),
         )
     return RedirectResponse(
-        url=f"/queue?date={appointment.scheduled_at.date().isoformat()}",
+        url=(
+            f"/queue?date={appointment.scheduled_at.date().isoformat()}"
+            f"&view={render_view}"
+        ),
         status_code=303,
     )
 

@@ -6,13 +6,20 @@
       <div>
         <p class="text-sm font-semibold text-emerald-600">Patient flow</p>
         <h2 class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{{ page_title }}</h2>
-        <p class="mt-2 text-sm leading-6 text-slate-500">{{ selected_date.strftime("%A, %B %-d, %Y") }} · Status changes are recorded in the audit history.</p>
+        <p class="mt-2 text-sm leading-6 text-slate-500">{{ period_label }} · Status changes are recorded in the audit history.</p>
       </div>
-      <div class="flex items-center gap-2">
-        <a class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50" href="/queue?date={{ previous_date.isoformat() }}">Previous</a>
-        <a class="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800" href="/queue">Today</a>
-        <a class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50" href="/queue?date={{ next_date.isoformat() }}">Next</a>
-        <a class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50" href="/schedule">Calendar</a>
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        <div class="flex items-center gap-2">
+          <a class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50" href="/queue?date={{ previous_date.isoformat() }}&view={{ view_mode }}">Previous</a>
+          <a class="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800" href="/queue?view={{ view_mode }}">Today</a>
+          <a class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50" href="/queue?date={{ next_date.isoformat() }}&view={{ view_mode }}">Next</a>
+          <a class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50" href="/schedule?view={{ view_mode }}">Calendar</a>
+        </div>
+        <div class="flex rounded-xl border border-slate-200 bg-white p-1 text-xs font-semibold" role="group" aria-label="Queue view">
+          {% for option in ["day", "week", "month"] %}
+            <a class="rounded-lg px-3 py-2 {% if view_mode == option %}bg-emerald-100 text-emerald-800{% else %}text-slate-500 hover:bg-slate-50{% endif %}" href="/queue?date={{ selected_date.isoformat() }}&view={{ option }}">{{ option|title }}</a>
+          {% endfor %}
+        </div>
       </div>
     </section>
     <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -25,7 +32,7 @@
         <div class="max-w-xl">
           <p class="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Front desk quick action</p>
           <h3 class="mt-1 text-xl font-semibold text-amber-950">Add a walk-in</h3>
-          <form class="mt-5 grid gap-4 sm:grid-cols-2" method="post" action="/schedule/walk-ins">
+          <form class="mt-5 grid gap-4 sm:grid-cols-2" method="post" action="/schedule/walk-ins?date={{ selected_date.isoformat() }}&view={{ view_mode }}">
             <input class="rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-sm sm:col-span-2" name="name" placeholder="Patient name" required />
             <input class="rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-sm" type="date" name="date_of_birth" required />
             <input class="rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-sm" name="phone" type="tel" inputmode="numeric" pattern="\+?[0-9][0-9 ()-]*" placeholder="Phone (optional)" />

@@ -139,6 +139,53 @@ def test_scheduling_is_available_to_clinical_front_desk_roles_not_billing(
     assert client.get("/api/appointments").status_code == 403
 
 
+def test_schedule_and_queue_support_day_week_month_views_and_click_to_book_slots(
+    client: TestClient,
+    seeded_users: dict[UserRole, User],
+    db_session: Session,
+) -> None:
+    """Verify period views render and only writers receive calendar slot controls."""
+
+    appointment_type = seed_type(db_session, seeded_users[UserRole.CLINIC_ADMIN])
+    patient = seed_patient(db_session, seeded_users[UserRole.CLINIC_ADMIN])
+    seed_appointment(
+        db_session,
+        seeded_users[UserRole.PHYSICIAN],
+        patient,
+        appointment_type,
+        scheduled_at=datetime.combine(date.today(), datetime.min.time()).replace(
+            hour=10,
+            minute=30,
+        ),
+    )
+    login_as(client, seeded_users[UserRole.FRONT_DESK])
+
+    day_schedule = client.get(f"/schedule?date={date.today().isoformat()}&view=day")
+    assert day_schedule.status_code == 200
+    assert 'data-schedule-slot' in day_schedule.text
+    assert 'data-doctor-id="' in day_schedule.text
+    assert f'data-scheduled-at="{date.today().isoformat()}T10:30"' in day_schedule.text
+
+    for view in ("week", "month"):
+        schedule_response = client.get(
+            f"/schedule?date={date.today().isoformat()}&view={view}"
+        )
+        queue_response = client.get(
+            f"/queue?date={date.today().isoformat()}&view={view}"
+        )
+        assert schedule_response.status_code == 200
+        assert queue_response.status_code == 200
+        assert patient.name in schedule_response.text
+        assert patient.name in queue_response.text
+
+    login_as(client, seeded_users[UserRole.PHYSICIAN])
+    physician_schedule = client.get(
+        f"/schedule?date={date.today().isoformat()}&view=day"
+    )
+    assert physician_schedule.status_code == 200
+    assert "data-schedule-slot" not in physician_schedule.text
+
+
 def test_front_desk_can_create_existing_patient_appointment_with_type_default(
     client: TestClient,
     seeded_users: dict[UserRole, User],

@@ -1,0 +1,50 @@
+<div class="space-y-4">
+  {% for day in queue_period_days %}
+    {% if view_mode == "week" or day.date.month == selected_date.month or day.appointments %}
+      <section class="overflow-hidden rounded-2xl border border-slate-200 {% if day.date == selected_date %}ring-2 ring-emerald-100{% endif %}">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-4 py-3">
+          <a class="font-semibold text-slate-900 hover:text-emerald-700" href="/queue?date={{ day.date.isoformat() }}&view=day">
+            {{ day.date.strftime("%A, %B %-d, %Y") }}
+          </a>
+          <span class="text-xs font-semibold text-slate-500">{{ day.appointments|length }} appointment{% if day.appointments|length != 1 %}s{% endif %}</span>
+        </div>
+        {% if day.appointments %}
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[650px] text-left text-sm">
+              <tbody class="divide-y divide-slate-100">
+                {% for appointment in day.appointments %}
+                  <tr class="hover:bg-slate-50">
+                    <td class="w-24 whitespace-nowrap px-4 py-3 font-semibold text-slate-700">{{ appointment.scheduled_at.strftime("%H:%M") }}</td>
+                    <td class="px-4 py-3">
+                      <a class="font-semibold text-indigo-700 hover:text-indigo-900" href="{% if user.role.value in ['physician', 'nurse_ma', 'clinic_admin'] %}{% if day.visit_ids.get(appointment.patient_id) %}/visits/{{ day.visit_ids.get(appointment.patient_id) }}{% else %}/visits/patients/{{ appointment.patient_id }}{% endif %}{% else %}/patients/{{ appointment.patient_id }}{% endif %}">{{ appointment.patient.name }}</a>
+                      <p class="mt-1 text-xs text-slate-400">{{ appointment.doctor.full_name }} · {{ appointment.appointment_type.name }}</p>
+                    </td>
+                    <td class="px-4 py-3">
+                      <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold {% if appointment.status.value == 'done' %}bg-emerald-100 text-emerald-800{% elif appointment.status.value in ['cancelled', 'no_show'] %}bg-rose-100 text-rose-800{% elif appointment.status.value == 'checked_in' %}bg-amber-100 text-amber-800{% else %}bg-indigo-100 text-indigo-800{% endif %}">{{ appointment.status.value|replace("_", " ")|title }}</span>
+                    </td>
+                    <td class="whitespace-nowrap px-4 py-3 text-right">
+                      {% if appointment.status.value in ['scheduled', 'checked_in', 'in_room', 'with_doctor'] %}
+                        <form method="post" action="/schedule/appointments/{{ appointment.id }}/advance?date={{ selected_date.isoformat() }}&view={{ view_mode }}" hx-post="/schedule/appointments/{{ appointment.id }}/advance?date={{ selected_date.isoformat() }}&view={{ view_mode }}" hx-target="#queue-rows" hx-swap="innerHTML">
+                          <button class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:border-emerald-300 hover:text-emerald-700" type="submit">{% if appointment.status.value == "scheduled" %}Check in{% elif appointment.status.value == "checked_in" %}Send in room{% elif appointment.status.value == "in_room" %}With doctor{% else %}Mark done{% endif %}</button>
+                        </form>
+                      {% else %}
+                        <span class="text-xs text-slate-400">Closed</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="px-4 py-5 text-sm text-slate-400">No appointments.</p>
+        {% endif %}
+      </section>
+    {% endif %}
+  {% else %}
+    <div class="rounded-2xl border border-dashed border-slate-200 px-5 py-10 text-center">
+      <p class="font-semibold text-slate-800">Queue is clear.</p>
+      <p class="mt-1 text-sm text-slate-500">No appointments fall within this view.</p>
+    </div>
+  {% endfor %}
+</div>

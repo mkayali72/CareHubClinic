@@ -452,8 +452,26 @@ def get_appointments_for_date(
 ) -> list[Appointment]:
     """Return clinic appointments for a date, optionally filtered to a doctor."""
 
-    start = datetime.combine(selected_date, time.min)
-    end = start + timedelta(days=1)
+    return get_appointments_for_range(
+        db,
+        user,
+        selected_date,
+        selected_date + timedelta(days=1),
+        doctor_id,
+    )
+
+
+def get_appointments_for_range(
+    db: Session,
+    user: User,
+    start_date: date,
+    end_date: date,
+    doctor_id: int | None = None,
+) -> list[Appointment]:
+    """Return clinic appointments in a half-open date range."""
+
+    start = datetime.combine(start_date, time.min)
+    end = datetime.combine(end_date, time.min)
     conditions = [
         Appointment.clinic_id == user.clinic_id,
         Appointment.scheduled_at >= start,

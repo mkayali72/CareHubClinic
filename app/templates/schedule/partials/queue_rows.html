@@ -1,4 +1,6 @@
-{% if queue_appointments %}
+{% if view_mode != "day" %}
+  {% include "schedule/partials/queue_period.html" %}
+{% elif queue_appointments %}
   <div class="overflow-x-auto">
     <table class="w-full min-w-[650px] text-left text-sm">
       <thead class="border-b border-slate-200 text-xs uppercase tracking-[0.12em] text-slate-400">
@@ -13,7 +15,7 @@
             <td class="px-3 py-4"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold {% if appointment.status.value == 'done' %}bg-emerald-100 text-emerald-800{% elif appointment.status.value in ['cancelled', 'no_show'] %}bg-rose-100 text-rose-800{% elif appointment.status.value == 'checked_in' %}bg-amber-100 text-amber-800{% else %}bg-indigo-100 text-indigo-800{% endif %}">{{ appointment.status.value|replace("_", " ")|title }}</span></td>
             <td class="px-3 py-4 text-right">
               {% if appointment.status.value in ['scheduled', 'checked_in', 'in_room', 'with_doctor'] %}
-                <form method="post" action="/schedule/appointments/{{ appointment.id }}/advance" hx-post="/schedule/appointments/{{ appointment.id }}/advance" hx-target="#queue-rows" hx-swap="innerHTML">
+                <form method="post" action="/schedule/appointments/{{ appointment.id }}/advance?date={{ selected_date.isoformat() }}&view={{ view_mode }}" hx-post="/schedule/appointments/{{ appointment.id }}/advance?date={{ selected_date.isoformat() }}&view={{ view_mode }}" hx-target="#queue-rows" hx-swap="innerHTML">
                   <button class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:border-indigo-300 hover:text-indigo-700" type="submit">{% if appointment.status.value == "scheduled" %}Check in{% elif appointment.status.value == "checked_in" %}Send in room{% elif appointment.status.value == "in_room" %}With doctor{% else %}Mark done{% endif %}</button>
                 </form>
               {% else %}

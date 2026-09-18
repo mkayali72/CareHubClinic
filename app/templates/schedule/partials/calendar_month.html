@@ -1,0 +1,39 @@
+<div class="flex flex-wrap items-center justify-between gap-4">
+  <div>
+    <p class="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">Monthly schedule</p>
+    <h3 class="mt-1 text-2xl font-semibold text-slate-950">{{ period_label }}</h3>
+  </div>
+  <p class="text-sm text-slate-500">Select a day to open its calendar</p>
+</div>
+
+<div class="mt-5 overflow-x-auto rounded-2xl border border-slate-200">
+  <div class="min-w-[760px]">
+    <div class="grid grid-cols-7 border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+      {% for weekday in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] %}
+        <div class="px-3 py-3">{{ weekday }}</div>
+      {% endfor %}
+    </div>
+    <div class="grid grid-cols-7">
+      {% for day in calendar_period_days %}
+        <div class="min-h-[132px] border-b border-r border-slate-200 p-2 {% if day.date.month != selected_date.month %}bg-slate-50/70{% elif day.date == selected_date %}bg-indigo-50/50{% else %}bg-white{% endif %}">
+          <div class="flex items-center justify-between gap-2">
+            <a class="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold {% if day.date == selected_date %}bg-indigo-600 text-white{% elif day.date.month != selected_date.month %}text-slate-400{% else %}text-slate-700{% endif %}" href="/schedule?date={{ day.date.isoformat() }}&view=day">{{ day.date.day }}</a>
+            {% if can_create and day.date.month == selected_date.month %}
+              <a class="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800" href="/schedule?date={{ day.date.isoformat() }}&view=day#appointment-booking-form">Book</a>
+            {% endif %}
+          </div>
+          <div class="mt-2 space-y-1">
+            {% for appointment in day.appointments[:4] %}
+              <a class="block truncate rounded-md bg-indigo-100 px-2 py-1 text-[10px] font-semibold text-indigo-900 hover:bg-indigo-200" href="{% if user.role.value in ['physician', 'nurse_ma', 'clinic_admin'] %}/visits/patients/{{ appointment.patient_id }}{% else %}/patients/{{ appointment.patient_id }}{% endif %}" title="{{ appointment.patient.name }} · {{ appointment.scheduled_at.strftime('%H:%M') }}">
+                {{ appointment.scheduled_at.strftime("%H:%M") }} {{ appointment.patient.name }}
+              </a>
+            {% endfor %}
+            {% if day.appointments|length > 4 %}
+              <a class="block px-2 text-[10px] font-semibold text-slate-500 hover:text-indigo-700" href="/schedule?date={{ day.date.isoformat() }}&view=day">+ {{ day.appointments|length - 4 }} more</a>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
