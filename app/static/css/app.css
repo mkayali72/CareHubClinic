@@ -21,12 +21,28 @@ html[data-theme="dark"] {
   --app-focus: #a5b4fc;
 }
 
+html[data-font-size="x-small"] {
+  font-size: 81.25%;
+}
+
 html[data-font-size="small"] {
-  font-size: 93.75%;
+  font-size: 87.5%;
 }
 
 html[data-font-size="large"] {
   font-size: 112.5%;
+}
+
+html[data-font-size="x-large"] {
+  font-size: 125%;
+}
+
+html[data-font-size="xx-large"] {
+  font-size: 137.5%;
+}
+
+html[data-font-size="xxx-large"] {
+  font-size: 150%;
 }
 
 body {
