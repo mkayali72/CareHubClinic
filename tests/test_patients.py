@@ -28,7 +28,12 @@ def login_as(client: TestClient, user: User) -> None:
     assert response.status_code == 303
 
 
-def seed_patient(db_session: Session, actor: User, name: str = "Amina Hassan") -> Patient:
+def seed_patient(
+    db_session: Session,
+    actor: User,
+    name: str = "Amina Hassan",
+    phone: str = "+974 5555 0101",
+) -> Patient:
     """Create one patient fixture with structured clinical data.
 
     Args:
@@ -48,7 +53,7 @@ def seed_patient(db_session: Session, actor: User, name: str = "Amina Hassan") -
             "name": name,
             "date_of_birth": date(1992, 4, 18),
             "contact_info": {
-                "phone": "+974 5555 0101",
+                "phone": phone,
                 "email": "amina@example.invalid",
                 "address": "Doha",
             },
@@ -373,6 +378,48 @@ def test_patient_list_is_newest_first_and_clinic_scoped(
     assert response.status_code == 200
     names = [patient["name"] for patient in response.json()["patients"]]
     assert names[:2] == [second.name, first.name]
+
+
+def test_patient_list_searches_by_name_or_phone_and_preserves_clinic_scope(
+    client: TestClient,
+    seeded_users: dict[UserRole, User],
+    db_session: Session,
+) -> None:
+    """Verify directory search matches names and formatted phone numbers."""
+
+    seed_patient(
+        db_session,
+        seeded_users[UserRole.CLINIC_ADMIN],
+        "Amina Hassan",
+        "+974 5555 0101",
+    )
+    seed_patient(
+        db_session,
+        seeded_users[UserRole.CLINIC_ADMIN],
+        "Noor Al-Sayed",
+        "+974 7777 2222",
+    )
+    login_as(client, seeded_users[UserRole.FRONT_DESK])
+
+    name_response = client.get("/patients", params={"search": "amina"})
+    assert name_response.status_code == 200
+    assert "Amina Hassan" in name_response.text
+    assert "Noor Al-Sayed" not in name_response.text
+    assert 'value="amina"' in name_response.text
+
+    phone_response = client.get("/patients", params={"search": "97477772222"})
+    assert phone_response.status_code == 200
+    assert "Noor Al-Sayed" in phone_response.text
+    assert "Amina Hassan" not in phone_response.text
+
+    rows_response = client.get(
+        "/patients/rows",
+        params={"search": "0101"},
+        headers={"HX-Request": "true"},
+    )
+    assert rows_response.status_code == 200
+    assert "Amina Hassan" in rows_response.text
+    assert "Noor Al-Sayed" not in rows_response.text
 
 
 def test_only_clinic_admin_can_soft_delete_patient_and_list_hides_it(

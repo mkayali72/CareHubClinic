@@ -1,10 +1,11 @@
 """Patient demographics HTML and API routes with clinic-scoped RBAC."""
 
 from datetime import date
+import re
 from typing import Any
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
@@ -158,6 +159,52 @@ def _patient_or_404(db: Session, patient_id: int, user: User) -> Patient:
     return patient
 
 
+def _patient_list_query(
+    db: Session,
+    clinic_id: int,
+    search_query: str = "",
+) -> list[Patient]:
+    """Return newest-first patients optionally matching name or phone.
+
+    Args:
+        db: Request-scoped SQLAlchemy session.
+        clinic_id: Clinic whose active patients may be returned.
+        search_query: User-entered name or phone fragment.
+
+    Returns:
+        Active patients in the clinic that match the search, or all clinic
+        patients when the search is blank.
+    """
+
+    statement = select(Patient).where(Patient.clinic_id == clinic_id)
+    normalized_query = search_query.strip()
+    if normalized_query:
+        phone_value = Patient.contact_info["phone"].as_string()
+        phone_conditions = [
+            Patient.name.ilike(f"%{normalized_query}%"),
+            phone_value.ilike(f"%{normalized_query}%"),
+        ]
+        digits_only_query = re.sub(r"\D", "", normalized_query)
+        if digits_only_query:
+            compact_phone_value = phone_value
+            for character in (" ", "-", "(", ")", "+", "."):
+                compact_phone_value = func.replace(
+                    compact_phone_value,
+                    character,
+                    "",
+                )
+            phone_conditions.append(
+                compact_phone_value.ilike(f"%{digits_only_query}%")
+            )
+        statement = statement.where(or_(*phone_conditions))
+
+    return list(
+        db.scalars(
+            statement.order_by(Patient.created_at.desc(), Patient.id.desc())
+        )
+    )
+
+
 def _detail_context(
     request: Request,
     db: Session,
@@ -215,6 +262,7 @@ def _detail_context(
 @router.get("/patients", response_class=HTMLResponse)
 def patient_list(
     request: Request,
+    search: str = Query(default=""),
     current_user: User = Depends(require_roles(*PATIENT_ROLES)),
     db: Session = Depends(get_db),
 ) -> Response:
@@ -229,13 +277,7 @@ def patient_list(
         The patient list page.
     """
 
-    patients = list(
-        db.scalars(
-            select(Patient)
-            .where(Patient.clinic_id == current_user.clinic_id)
-            .order_by(Patient.created_at.desc(), Patient.id.desc())
-        )
-    )
+    patients = _patient_list_query(db, current_user.clinic_id, search)
     return templates.TemplateResponse(
         request=request,
         name="patients/list.html",
@@ -244,6 +286,7 @@ def patient_list(
             "page_title": "Patients",
             "user": current_user,
             "patients": patients,
+            "search_query": search.strip(),
             "can_view_sensitive": can_view_clinical_patient_fields(current_user),
             "can_delete": current_user.role is UserRole.CLINIC_ADMIN,
         },
@@ -253,6 +296,7 @@ def patient_list(
 @router.get("/patients/rows", response_class=HTMLResponse)
 def patient_rows(
     request: Request,
+    search: str = Query(default=""),
     current_user: User = Depends(require_roles(*PATIENT_ROLES)),
     db: Session = Depends(get_db),
 ) -> Response:
@@ -267,19 +311,14 @@ def patient_rows(
         An HTML table-row fragment.
     """
 
-    patients = list(
-        db.scalars(
-            select(Patient)
-            .where(Patient.clinic_id == current_user.clinic_id)
-            .order_by(Patient.created_at.desc(), Patient.id.desc())
-        )
-    )
+    patients = _patient_list_query(db, current_user.clinic_id, search)
     return templates.TemplateResponse(
         request=request,
         name="patients/partials/rows.html",
         context={
             "request": request,
             "patients": patients,
+            "search_query": search.strip(),
             "user": current_user,
             "can_view_sensitive": can_view_clinical_patient_fields(current_user),
             "can_delete": current_user.role is UserRole.CLINIC_ADMIN,

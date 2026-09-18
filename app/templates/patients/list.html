@@ -31,12 +31,32 @@
 
     <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div class="border-b border-slate-100 px-6 py-5">
-        <div class="flex items-center justify-between gap-4">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h3 class="font-semibold text-slate-950">Patient directory</h3>
             <p class="mt-1 text-sm text-slate-500">Open a record to view its Summary and future clinical tabs.</p>
           </div>
-          <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">{{ patients|length }} record{% if patients|length != 1 %}s{% endif %}</span>
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <label class="sr-only" for="patient-search">Search patients by name or phone number</label>
+            <div class="relative">
+              <input
+                id="patient-search"
+                class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 pr-10 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100 sm:w-72"
+                type="search"
+                name="search"
+                value="{{ search_query }}"
+                placeholder="Search name or phone"
+                autocomplete="off"
+                hx-get="/patients/rows"
+                hx-trigger="keyup changed delay:300ms"
+                hx-target="#patient-list"
+                hx-swap="innerHTML"
+                hx-include="this"
+              />
+              <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400" aria-hidden="true">⌕</span>
+            </div>
+            <span class="rounded-full bg-slate-100 px-3 py-1 text-center text-xs font-semibold text-slate-500">{{ patients|length }} record{% if patients|length != 1 %}s{% endif %}</span>
+          </div>
         </div>
       </div>
       <div class="overflow-x-auto">
@@ -62,6 +82,7 @@
             hx-trigger="patientsChanged from:body"
             hx-target="#patient-list"
             hx-swap="innerHTML"
+            hx-include="#patient-search"
           >
             {% include "patients/partials/rows.html" %}
           </tbody>
