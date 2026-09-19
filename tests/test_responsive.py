@@ -80,7 +80,7 @@ def test_100_theme_controls_and_dark_mode_contract_span_shared_pages(
         assert response.text.count("data-font-size-indicator") == 1, path
         assert "Dashboard" in response.text, path
         assert "data-contrast-toggle" in response.text, path
-        assert "/static/js/app.js" in response.text, path
+        assert "/static/js/app.js?v=text-size-stepper-2" in response.text, path
         if path == "/schedule":
             assert re.search(r'<a class="[^"]*bg-indigo-50[^"]*" href="/schedule"', response.text)
             assert re.search(r'<a class="[^"]*bg-white[^"]*" href="/"', response.text)

@@ -39,16 +39,10 @@
     {% else %}
       <div class="mt-8 flex flex-wrap gap-3">
         {% if user.role and user.role.value != "billing_clerk" %}
-          <a class="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700" href="/schedule">Open Today's Queue</a>
           <a class="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50" href="/schedule">Open Schedule</a>
         {% endif %}
         <a class="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50" href="/patients">Open Patients</a>
       </div>
     {% endif %}
-    <form class="mt-8" method="post" action="/logout" hx-post="/logout">
-      <button class="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50" type="submit">
-        Sign out
-      </button>
-    </form>
   </section>
 {% endblock %}

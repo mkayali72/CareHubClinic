@@ -151,17 +151,16 @@
   document.querySelectorAll("[data-theme-toggle]").forEach((button) => {
     button.addEventListener("click", () => applyTheme(root.dataset.theme === "dark" ? "light" : "dark"));
   });
-  document.querySelectorAll("[data-font-size-decrease]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const level = fontSizeLevels.indexOf(root.dataset.fontSize);
-      applyFontSize(fontSizeLevels[Math.max(0, level - 1)]);
-    });
-  });
-  document.querySelectorAll("[data-font-size-increase]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const level = fontSizeLevels.indexOf(root.dataset.fontSize);
-      applyFontSize(fontSizeLevels[Math.min(fontSizeLevels.length - 1, level + 1)]);
-    });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-font-size-decrease], [data-font-size-increase]");
+    if (!button) return;
+    const currentLevel = fontSizeLevels.indexOf(root.dataset.fontSize);
+    const direction = button.hasAttribute("data-font-size-increase") ? 1 : -1;
+    const nextLevel = Math.min(
+      fontSizeLevels.length - 1,
+      Math.max(0, currentLevel + direction),
+    );
+    applyFontSize(fontSizeLevels[nextLevel]);
   });
   document.querySelectorAll("[data-contrast-toggle]").forEach((button) => {
     button.addEventListener("click", () => applyContrast(root.dataset.contrast === "high" ? "standard" : "high"));
