@@ -622,3 +622,5 @@ def test_physician_welcome_shows_only_their_todays_queue(
     assert response.status_code == 200
     assert "Own Queue Patient" in response.text
     assert "Other Queue Patient" not in response.text
+    assert 'href="/schedule">Open full queue</a>' in response.text
+    assert 'href="/queue">Open full queue</a>' not in response.text

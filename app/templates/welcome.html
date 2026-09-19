@@ -18,7 +18,7 @@
             <h3 class="mt-1 text-xl font-semibold text-emerald-950">Today's Queue</h3>
             <p class="mt-1 text-sm text-emerald-800">{{ physician_queue|length }} appointment{% if physician_queue|length != 1 %}s{% endif %} for {{ today.strftime("%B %-d, %Y") }}.</p>
           </div>
-          <a class="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800" href="/queue">Open full queue</a>
+          <a class="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800" href="/schedule">Open full queue</a>
         </div>
         {% if physician_queue %}
           <div class="mt-5 space-y-3">
@@ -39,7 +39,7 @@
     {% else %}
       <div class="mt-8 flex flex-wrap gap-3">
         {% if user.role and user.role.value != "billing_clerk" %}
-          <a class="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700" href="/queue">Open Today's Queue</a>
+          <a class="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700" href="/schedule">Open Today's Queue</a>
           <a class="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50" href="/schedule">Open Schedule</a>
         {% endif %}
         <a class="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50" href="/patients">Open Patients</a>
