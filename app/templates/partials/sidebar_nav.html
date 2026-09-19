@@ -1,7 +1,6 @@
 {% set current_path = request.url.path %}
 {% set dashboard_active = current_path in ["/", "/welcome"] %}
 {% set schedule_active = current_path == "/schedule" or current_path.startswith("/schedule/") %}
-{% set queue_active = current_path == "/queue" or current_path.startswith("/queue/") %}
 {% set patients_active = current_path == "/patients" or current_path.startswith("/patients/") %}
 {% set reports_active = current_path == "/reports" or current_path.startswith("/reports/") %}
 {% set password_active = current_path == "/account/password" %}
@@ -29,10 +28,6 @@
     <a class="{{ module_link_classes(schedule_active) }}" href="/schedule">
       <span class="{{ module_dot_classes(schedule_active) }}"></span>
       Schedule
-    </a>
-    <a class="{{ module_link_classes(queue_active) }}" href="/queue">
-      <span class="{{ module_dot_classes(queue_active) }}"></span>
-      Today's Queue
     </a>
   {% endif %}
   <a class="{{ module_link_classes(patients_active) }}" href="/patients">
