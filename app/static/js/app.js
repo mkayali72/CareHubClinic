@@ -7,6 +7,7 @@
   const backdrop = document.getElementById("mobile-menu-backdrop");
   const menuButton = document.querySelector("[data-mobile-menu-open]");
   const closeButton = document.querySelector("[data-mobile-menu-close]");
+  const fontSizeLevels = ["x-small", "small", "normal", "large", "x-large", "xx-large", "xxx-large"];
 
   function preference(key, fallback) {
     try {
@@ -36,10 +37,20 @@
   }
 
   function applyFontSize(value) {
-    root.dataset.fontSize = value;
-    savePreference("obgyn-font-size", value);
-    document.querySelectorAll("[data-font-size]").forEach((button) => {
-      button.setAttribute("aria-pressed", String(button.dataset.fontSize === value));
+    const level = Math.max(0, fontSizeLevels.indexOf(value));
+    const normalizedValue = fontSizeLevels[level];
+    root.dataset.fontSize = normalizedValue;
+    savePreference("obgyn-font-size", normalizedValue);
+    document.querySelectorAll("[data-font-size-indicator]").forEach((indicator) => {
+      indicator.setAttribute("aria-label", `Text size level ${level + 1} of ${fontSizeLevels.length}`);
+    });
+    document.querySelectorAll("[data-font-size-decrease]").forEach((button) => {
+      button.disabled = level === 0;
+      button.title = level === 0 ? "Smallest text size" : "Decrease text size";
+    });
+    document.querySelectorAll("[data-font-size-increase]").forEach((button) => {
+      button.disabled = level === fontSizeLevels.length - 1;
+      button.title = level === fontSizeLevels.length - 1 ? "Largest text size" : "Increase text size";
     });
   }
 
@@ -140,8 +151,17 @@
   document.querySelectorAll("[data-theme-toggle]").forEach((button) => {
     button.addEventListener("click", () => applyTheme(root.dataset.theme === "dark" ? "light" : "dark"));
   });
-  document.querySelectorAll("[data-font-size]").forEach((button) => {
-    button.addEventListener("click", () => applyFontSize(button.dataset.fontSize));
+  document.querySelectorAll("[data-font-size-decrease]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const level = fontSizeLevels.indexOf(root.dataset.fontSize);
+      applyFontSize(fontSizeLevels[Math.max(0, level - 1)]);
+    });
+  });
+  document.querySelectorAll("[data-font-size-increase]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const level = fontSizeLevels.indexOf(root.dataset.fontSize);
+      applyFontSize(fontSizeLevels[Math.min(fontSizeLevels.length - 1, level + 1)]);
+    });
   });
   document.querySelectorAll("[data-contrast-toggle]").forEach((button) => {
     button.addEventListener("click", () => applyContrast(root.dataset.contrast === "high" ? "standard" : "high"));

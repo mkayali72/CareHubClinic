@@ -75,7 +75,9 @@ def test_100_theme_controls_and_dark_mode_contract_span_shared_pages(
         assert response.status_code == 200, path
         assert 'data-theme="light"' in response.text, path
         assert "data-theme-toggle" in response.text, path
-        assert response.text.count('type="button" data-font-size=') == 7, path
+        assert response.text.count("data-font-size-decrease") == 1, path
+        assert response.text.count("data-font-size-increase") == 1, path
+        assert response.text.count("data-font-size-indicator") == 1, path
         assert "Dashboard" in response.text, path
         assert "data-contrast-toggle" in response.text, path
         assert "/static/js/app.js" in response.text, path
