@@ -8,3 +8,4 @@
 - [Docker Compose validation](docker-compose-validation.md) — a local OCI healthcheck exec failure can differ from actual database/app readiness.
 - [Staff account management boundaries](staff-account-management.md) — keep clinic-admin authorization in dedicated staff operations, not the generic user factory.
 - [Phone input validation](phone-input-validation.md) — preserve conventional international formatting while validating that phone content is numeric.
+- [Sample data lifecycle](sample-data-lifecycle.md) — first-run demo records are registry-tracked and removed through auditable soft deletion.

@@ -12,6 +12,7 @@ from app.models import AuditAction, Clinic, User, UserRole
 from app.services.auth import hash_password
 from app.services.audit import record_audit_event
 from app.services.licensing import ensure_license
+from app.services.sample_data import ensure_sample_data
 
 
 def ensure_initial_admin() -> bool:
@@ -35,6 +36,17 @@ def ensure_initial_admin() -> bool:
             .limit(1)
         )
         if existing_user is not None:
+            clinic = db.scalar(select(Clinic).order_by(Clinic.id))
+            administrator = db.scalar(
+                select(User).where(
+                    User.clinic_id == clinic.id if clinic is not None else False,
+                    User.role == UserRole.CLINIC_ADMIN,
+                )
+            ) if clinic is not None else None
+            if clinic is not None and administrator is not None:
+                if not clinic.settings.get("sample_data", {}).get("initialized", False):
+                    ensure_sample_data(db, clinic, administrator)
+                    db.commit()
             return False
 
         clinic = db.scalar(select(Clinic).order_by(Clinic.id))
@@ -53,6 +65,7 @@ def ensure_initial_admin() -> bool:
         )
         db.add(user)
         db.flush()
+        ensure_sample_data(db, clinic, user)
         record_audit_event(
             db=db,
             actor_user_id=None,

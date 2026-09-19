@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block content %}
+  {% set saved_messages = {
+    "updated": "Sample record updated.",
+    "deleted": "Sample record permanently deleted."
+  } %}
+  {% if request.query_params.get("saved") in saved_messages %}
+    <div class="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-medium text-emerald-800" role="status">
+      {{ saved_messages[request.query_params.get("saved")] }}
+    </div>
+  {% endif %}
+
+  <div class="space-y-6">
+    <section>
+      <p class="text-sm font-semibold uppercase tracking-[0.16em] text-fuchsia-600">Clinic administration</p>
+      <h2 class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Sample data</h2>
+      <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+        These records were created automatically for the first clinic setup. They are safe to edit or remove from this page.
+        Patient edits use the full patient form.
+      </p>
+    </section>
+
+    <section class="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-950">
+      <strong>Sample-only removal:</strong> only records registered by the first-run sample-data setup can be removed here.
+      Removal is recorded in the audit history and does not affect normal clinic records.
+    </section>
+
+    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.14em] text-indigo-600">Access</p>
+          <h3 class="mt-1 text-xl font-semibold text-slate-950">Sample staff accounts</h3>
+        </div>
+        <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{{ staff|length }} account{% if staff|length != 1 %}s{% endif %}</span>
+      </div>
+      <div class="mt-5 space-y-3">
+        {% for member in staff %}
+          <form class="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 lg:grid-cols-[1fr_1fr_1fr_1fr_auto_auto]" method="post" action="/admin/sample-data/staff/{{ member.id }}/edit">
+            <label class="text-xs font-semibold text-slate-500">Display name<input class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-800" name="full_name" value="{{ member.full_name }}" required maxlength="255" /></label>
+            <label class="text-xs font-semibold text-slate-500">Username<input class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-800" name="username" value="{{ member.username }}" required maxlength="16" /></label>
+            <label class="text-xs font-semibold text-slate-500">Role<select class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-800" name="role" required>{% for staff_role in staff_roles %}<option value="{{ staff_role.value }}" {% if member.role == staff_role %}selected{% endif %}>{{ staff_role.value|replace("_", " ")|title }}</option>{% endfor %}</select></label>
+            <div class="flex items-end text-xs text-slate-500">Password remains unchanged.</div>
+            <button class="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700" type="submit">Save</button>
+            <button class="rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50" type="submit" formaction="/admin/sample-data/staff/{{ member.id }}/delete" formmethod="post" onclick="return confirm('Remove this sample staff account?')">Delete</button>
+          </form>
+        {% else %}
+          <p class="text-sm text-slate-500">All sample staff accounts have been deleted.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-600">Scheduling</p>
+          <h3 class="mt-1 text-xl font-semibold text-slate-950">Sample appointment types</h3>
+        </div>
+        <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{{ appointment_types|length }} type{% if appointment_types|length != 1 %}s{% endif %}</span>
+      </div>
+      <div class="mt-5 space-y-3">
+        {% for appointment_type in appointment_types %}
+          <form class="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-[1fr_10rem_auto_auto]" method="post" action="/admin/sample-data/appointment-types/{{ appointment_type.id }}/edit">
+            <label class="text-xs font-semibold text-slate-500">Name<input class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-800" name="name" value="{{ appointment_type.name }}" required /></label>
+            <label class="text-xs font-semibold text-slate-500">Default minutes<input class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-800" type="number" min="1" name="default_duration_minutes" value="{{ appointment_type.default_duration_minutes }}" required /></label>
+            <button class="self-end rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700" type="submit">Save</button>
+            <button class="self-end rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50" type="submit" formaction="/admin/sample-data/appointment-types/{{ appointment_type.id }}/delete" formmethod="post" onclick="return confirm('Remove this sample appointment type?')">Delete</button>
+          </form>
+        {% else %}
+          <p class="text-sm text-slate-500">All sample appointment types have been deleted.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.14em] text-fuchsia-600">Patients</p>
+          <h3 class="mt-1 text-xl font-semibold text-slate-950">Sample patients</h3>
+        </div>
+        <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{{ patients|length }} patient{% if patients|length != 1 %}s{% endif %}</span>
+      </div>
+      <div class="mt-5 space-y-3">
+        {% for patient in patients %}
+          <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div>
+              <p class="font-semibold text-slate-900">{{ patient.name }}</p>
+              <p class="mt-1 text-xs text-slate-500">DOB {{ patient.date_of_birth.strftime("%d %b %Y") }} · {{ patient.contact_info.get("phone", "No phone") }}</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <a class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 hover:border-indigo-300" href="/patients/{{ patient.id }}/edit">Edit patient</a>
+              <form method="post" action="/admin/sample-data/patients/{{ patient.id }}/delete">
+                <button class="rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50" type="submit" onclick="return confirm('Remove this sample patient and generated sample visit data?')">Delete</button>
+              </form>
+            </div>
+          </div>
+        {% else %}
+          <p class="text-sm text-slate-500">All sample patients have been deleted.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.14em] text-cyan-600">Laboratory workflow</p>
+          <h3 class="mt-1 text-xl font-semibold text-slate-950">Sample lab orders</h3>
+          <p class="mt-1 text-sm text-slate-500">The generated orders are attached to Sample_Patient_1’s sample visit.</p>
+        </div>
+        <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{{ lab_orders|length }} order{% if lab_orders|length != 1 %}s{% endif %}</span>
+      </div>
+      <div class="mt-5 space-y-3">
+        {% for order in lab_orders %}
+          <form class="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-[1fr_1fr_10rem_auto_auto]" method="post" action="/admin/sample-data/lab-orders/{{ order.id }}/edit">
+            <div class="flex items-center text-sm font-semibold text-slate-800">{{ order.patient.name }}</div>
+            <label class="text-xs font-semibold text-slate-500">Test<select class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-800" name="lab_test_definition_id" required>{% for definition in lab_definitions %}<option value="{{ definition.id }}" {% if order.lab_test_definition_id == definition.id %}selected{% endif %}>{{ definition.name }}</option>{% endfor %}</select></label>
+            <label class="text-xs font-semibold text-slate-500">Status<select class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-800" name="status" required>{% for lab_status in lab_statuses %}<option value="{{ lab_status.value }}" {% if order.status == lab_status %}selected{% endif %}>{{ lab_status.value|title }}</option>{% endfor %}</select></label>
+            <button class="self-end rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700" type="submit">Save</button>
+            <button class="self-end rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50" type="submit" formaction="/admin/sample-data/lab-orders/{{ order.id }}/delete" formmethod="post" onclick="return confirm('Remove this sample lab order?')">Delete</button>
+          </form>
+        {% else %}
+          <p class="text-sm text-slate-500">All sample lab orders have been deleted.</p>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+{% endblock %}

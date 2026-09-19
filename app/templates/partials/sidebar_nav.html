@@ -6,6 +6,7 @@
 {% set reports_active = current_path == "/reports" or current_path.startswith("/reports/") %}
 {% set password_active = current_path == "/account/password" %}
 {% set staff_active = current_path == "/admin/staff" %}
+{% set sample_data_active = current_path == "/admin/sample-data" %}
 {% set prescriptions_active = current_path == "/admin/prescriptions" %}
 {% set features_active = current_path == "/admin/clinic-features" %}
 {% set billing_active = current_path == "/billing" or current_path.startswith("/billing/") %}
@@ -52,6 +53,10 @@
     <a class="{{ module_link_classes(staff_active) }}" href="/admin/staff">
       <span class="{{ module_dot_classes(staff_active) }}"></span>
       Staff accounts
+    </a>
+    <a class="{{ module_link_classes(sample_data_active) }}" href="/admin/sample-data">
+      <span class="{{ module_dot_classes(sample_data_active) }}"></span>
+      Sample data
     </a>
     <a class="{{ module_link_classes(prescriptions_active) }}" href="/admin/prescriptions">
       <span class="{{ module_dot_classes(prescriptions_active) }}"></span>
