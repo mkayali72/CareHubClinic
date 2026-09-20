@@ -22,6 +22,8 @@
       </div>
     {% elif active_tab == "prescriptions" %}
       {% include "patients/partials/prescriptions.html" %}
+    {% elif active_tab == "labs" %}
+      {% include "patients/partials/labs.html" %}
     {% elif active_tab == "billing" %}
       {% include "patients/partials/billing.html" %}
     {% else %}

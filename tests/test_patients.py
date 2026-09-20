@@ -7,7 +7,18 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import AuditAction, AuditLog, Clinic, Patient, User, UserRole
+from app.models import (
+    AuditAction,
+    AuditLog,
+    Clinic,
+    LabOrderStatus,
+    Patient,
+    User,
+    UserRole,
+    VisitType,
+)
+from app.services.clinical import create_visit
+from app.services.labs import get_lab_test_definitions, order_lab_tests
 from app.services.audit import restore_record
 from app.services.patients import create_patient
 
@@ -137,6 +148,48 @@ def test_patient_list_is_visible_to_all_allowed_roles(
 
     assert response.status_code == 200
     assert "Amina Hassan" in response.text
+
+
+def test_patient_labs_tab_shows_orders_and_replaces_placeholder(
+    client: TestClient,
+    seeded_users: dict[UserRole, User],
+    db_session: Session,
+) -> None:
+    """Verify the patient Labs tab uses the active lab workflow."""
+
+    physician = seeded_users[UserRole.PHYSICIAN]
+    patient = seed_patient(db_session, physician)
+    visit = create_visit(
+        db_session,
+        physician,
+        patient.id,
+        VisitType.PROBLEM_FOCUSED,
+        None,
+        {},
+        None,
+        None,
+        "Lab review",
+        "Assessment",
+        "Plan",
+        [],
+    )
+    definition = get_lab_test_definitions(
+        db_session,
+        physician.clinic_id,
+        active_only=True,
+    )[0]
+    order = order_lab_tests(db_session, physician, visit.id, [definition.id])[0]
+    db_session.commit()
+
+    login_as(client, physician)
+    response = client.get(f"/patients/{patient.id}?tab=labs")
+
+    assert response.status_code == 200
+    assert "Lab orders and results" in response.text
+    assert definition.name in response.text
+    assert f"/visits/{visit.id}" in response.text
+    assert "Coming soon" not in response.text
+    assert order.status is LabOrderStatus.ORDERED
 
 
 def test_patient_api_projection_hides_sensitive_fields_from_billing(
