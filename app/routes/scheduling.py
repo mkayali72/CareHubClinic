@@ -194,6 +194,7 @@ def _schedule_context(
     selected_date: date,
     patient_id: int | None = None,
     view_mode: str = "day",
+    success_message: str = "",
 ) -> dict[str, Any]:
     """Build shared calendar and queue context for one schedule view."""
 
@@ -260,6 +261,7 @@ def _schedule_context(
         "can_manage_types": user.role in APPOINTMENT_TYPE_ADMIN_ROLES,
         "selected_patient_id": patient_id,
         "follow_up_recommendation": follow_up_recommendation,
+        "success_message": success_message,
     }
 
 
@@ -327,6 +329,7 @@ def schedule_page(
     selected_date: str | None = Query(default=None, alias="date"),
     patient_id: int | None = Query(default=None),
     view: str | None = Query(default="day"),
+    saved: str | None = Query(default=None),
     current_user: User = Depends(require_roles(*SCHEDULING_ROLES)),
     db: Session = Depends(get_db),
 ) -> Response:
@@ -342,6 +345,11 @@ def schedule_page(
             parse_selected_date(selected_date),
             patient_id,
             parse_view(view),
+            success_message=(
+                "Appointment added successfully."
+                if saved == "appointment-added"
+                else ""
+            ),
         ),
     )
 
@@ -512,12 +520,13 @@ def create_appointment_route(
                 current_user,
                 render_date,
                 view_mode=render_view,
+                success_message="Appointment added successfully.",
             ),
         )
     return RedirectResponse(
         url=(
             f"/schedule?date={parsed_scheduled_at.date().isoformat()}"
-            f"&view={render_view}"
+            f"&view={render_view}&saved=appointment-added"
         ),
         status_code=303,
     )

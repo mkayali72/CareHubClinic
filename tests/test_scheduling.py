@@ -29,6 +29,7 @@ def login_as(client: TestClient, user: User) -> None:
         follow_redirects=False,
     )
     assert response.status_code == 303
+    assert "saved=appointment-added" in response.headers["location"]
 
 
 def seed_type(db_session: Session, user: User, name: str = "Prenatal visit") -> AppointmentType:
@@ -224,6 +225,33 @@ def test_front_desk_can_create_existing_patient_appointment_with_type_default(
             AuditLog.action == AuditAction.CREATE,
         )
     ) is not None
+
+
+def test_htmx_appointment_creation_shows_success_message(
+    client: TestClient,
+    seeded_users: dict[UserRole, User],
+    db_session: Session,
+) -> None:
+    """Verify the calendar refresh includes an appointment success message."""
+
+    patient = seed_patient(db_session, seeded_users[UserRole.CLINIC_ADMIN])
+    appointment_type = seed_type(db_session, seeded_users[UserRole.CLINIC_ADMIN])
+    login_as(client, seeded_users[UserRole.FRONT_DESK])
+
+    response = client.post(
+        "/schedule/appointments?date="
+        f"{date.today().isoformat()}&view=day",
+        data={
+            "patient_id": patient.id,
+            "doctor_id": seeded_users[UserRole.PHYSICIAN].id,
+            "appointment_type_id": appointment_type.id,
+            "scheduled_at": f"{date.today().isoformat()}T10:00",
+        },
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert "Appointment added successfully." in response.text
 
 
 def test_each_appointment_type_can_create_edit_and_cancel_an_appointment(
