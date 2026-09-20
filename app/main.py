@@ -30,7 +30,6 @@ from app.routes import (
     patients,
     prescriptions,
     reporting,
-    sample_data,
     scheduling,
     staff,
     licensing,
@@ -114,7 +113,6 @@ def create_app() -> FastAPI:
     application.include_router(labs.router)
     application.include_router(prescriptions.router)
     application.include_router(reporting.router)
-    application.include_router(sample_data.router)
     application.include_router(billing.router)
     application.include_router(staff.router)
     application.include_router(licensing.router)
