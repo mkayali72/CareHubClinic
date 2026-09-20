@@ -29,7 +29,6 @@ def login_as(client: TestClient, user: User) -> None:
         follow_redirects=False,
     )
     assert response.status_code == 303
-    assert "saved=appointment-added" in response.headers["location"]
 
 
 def seed_type(db_session: Session, user: User, name: str = "Prenatal visit") -> AppointmentType:
@@ -211,6 +210,9 @@ def test_front_desk_can_create_existing_patient_appointment_with_type_default(
     )
 
     assert response.status_code == 303
+    assert "saved=appointment-added" in response.headers["location"]
+    redirected_schedule = client.get(response.headers["location"])
+    assert "Appointment added successfully." in redirected_schedule.text
     appointment = db_session.scalar(
         select(Appointment).where(Appointment.patient_id == patient.id)
     )
