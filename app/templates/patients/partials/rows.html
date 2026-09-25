@@ -3,7 +3,7 @@
     <tr id="patient-row-{{ patient.id }}" class="transition hover:bg-slate-50">
       <td class="whitespace-nowrap px-6 py-4">
         <a class="font-semibold text-indigo-700 hover:text-indigo-900" href="/patients/{{ patient.id }}">{{ patient.name }}</a>
-        <p class="mt-1 text-xs text-slate-400">Patient #{{ patient.id }}</p>
+        <p class="mt-1 text-xs text-slate-400">Patient number: #{{ patient.id }}</p>
       </td>
       <td class="whitespace-nowrap px-6 py-4 text-slate-600">{{ patient.date_of_birth.strftime("%b %-d, %Y") }}</td>
       <td class="min-w-48 px-6 py-4 text-slate-600">

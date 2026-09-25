@@ -7,8 +7,8 @@
     <div class="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
       <div>
         <p class="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">Summary</p>
-        <h2 class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{{ patient.name }}</h2>
-        <p class="mt-2 text-sm text-slate-500">Patient #{{ patient.id }} · Date of birth {{ patient.date_of_birth.strftime("%B %-d, %Y") }}</p>
+        <h2 class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Patient overview</h2>
+        <p class="mt-2 text-sm text-slate-500">Date of birth {{ patient.date_of_birth.strftime("%B %-d, %Y") }}</p>
       </div>
       <div class="flex flex-wrap gap-3">
         {% if can_view_sensitive %}

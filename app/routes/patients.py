@@ -180,12 +180,19 @@ def _patient_list_query(
     statement = select(Patient).where(Patient.clinic_id == clinic_id)
     normalized_query = search_query.strip()
     if normalized_query:
+        escaped_query = (
+            normalized_query.replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
+        )
+        like_pattern = f"%{escaped_query}%"
         phone_value = Patient.contact_info["phone"].as_string()
         phone_conditions = [
-            Patient.name.ilike(f"%{normalized_query}%"),
-            phone_value.ilike(f"%{normalized_query}%"),
+            Patient.name.ilike(like_pattern, escape="\\"),
+            phone_value.ilike(like_pattern, escape="\\"),
         ]
-        digits_only_query = re.sub(r"\D", "", normalized_query)
+        phone_query = re.fullmatch(r"[+\d\s().-]+", normalized_query)
+        digits_only_query = re.sub(r"\D", "", normalized_query) if phone_query else ""
         if digits_only_query:
             compact_phone_value = phone_value
             for character in (" ", "-", "(", ")", "+", "."):

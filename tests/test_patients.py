@@ -150,6 +150,37 @@ def test_patient_list_is_visible_to_all_allowed_roles(
     assert "Amina Hassan" in response.text
 
 
+def test_patient_search_treats_underscores_literally_and_shows_patient_number(
+    client: TestClient,
+    seeded_users: dict[UserRole, User],
+    db_session: Session,
+) -> None:
+    """Name searches must not become phone searches because they contain digits."""
+
+    admin = seeded_users[UserRole.CLINIC_ADMIN]
+    matching_patient = seed_patient(db_session, admin, "Sample_Patient_1")
+    seed_patient(db_session, admin, "Sample_Patient_2")
+    seed_patient(db_session, admin, "An unrelated patient")
+    login_as(client, seeded_users[UserRole.FRONT_DESK])
+
+    response = client.get("/patients", params={"search": "Sample_Patient_1"})
+    rows_response = client.get(
+        "/patients/rows",
+        params={"search": "Sample_Patient_1"},
+    )
+    detail_response = client.get(f"/patients/{matching_patient.id}")
+
+    for result in (response, rows_response):
+        assert result.status_code == 200
+        assert "Sample_Patient_1" in result.text
+        assert "Sample_Patient_2" not in result.text
+        assert "An unrelated patient" not in result.text
+        assert f"Patient number: #{matching_patient.id}" in result.text
+    assert detail_response.status_code == 200
+    assert f"Patient number: #{matching_patient.id}" in detail_response.text
+    assert "Sample_Patient_1" in detail_response.text
+
+
 def test_patient_labs_tab_shows_orders_and_replaces_placeholder(
     client: TestClient,
     seeded_users: dict[UserRole, User],
