@@ -217,6 +217,40 @@ def test_patient_visit_history_tab_shows_saved_visits(
     assert "Coming soon" not in response.text
 
 
+def test_patient_visit_history_hides_clinical_notes_from_front_desk(
+    client: TestClient,
+    seeded_users: dict[UserRole, User],
+    db_session: Session,
+) -> None:
+    """Visit history remains restricted to clinical staff."""
+
+    physician = seeded_users[UserRole.PHYSICIAN]
+    patient = seed_patient(db_session, physician)
+    create_visit(
+        db_session,
+        physician,
+        patient.id,
+        VisitType.PROBLEM_FOCUSED,
+        None,
+        {},
+        None,
+        None,
+        "Private visit history note",
+        "Restricted clinical assessment text",
+        "Private treatment plan",
+        [],
+    )
+    db_session.commit()
+    login_as(client, seeded_users[UserRole.FRONT_DESK])
+
+    response = client.get(f"/patients/{patient.id}?tab=visits")
+
+    assert response.status_code == 200
+    assert "Visit history is available to clinical staff only." in response.text
+    assert "Restricted clinical assessment text" not in response.text
+    assert "Private treatment plan" not in response.text
+
+
 def test_patient_labs_tab_shows_orders_and_replaces_placeholder(
     client: TestClient,
     seeded_users: dict[UserRole, User],
