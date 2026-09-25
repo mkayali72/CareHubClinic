@@ -212,7 +212,9 @@ def test_front_desk_can_create_existing_patient_appointment_with_type_default(
     assert response.status_code == 303
     assert "saved=appointment-added" in response.headers["location"]
     redirected_schedule = client.get(response.headers["location"])
-    assert "Appointment added successfully." in redirected_schedule.text
+    feedback_position = redirected_schedule.text.index('id="appointment-add-feedback"')
+    assert redirected_schedule.text.index("Add to schedule") < feedback_position
+    assert "Appointment added successfully." in redirected_schedule.text[feedback_position:]
     appointment = db_session.scalar(
         select(Appointment).where(Appointment.patient_id == patient.id)
     )
@@ -229,12 +231,12 @@ def test_front_desk_can_create_existing_patient_appointment_with_type_default(
     ) is not None
 
 
-def test_htmx_appointment_creation_shows_success_message(
+def test_htmx_appointment_creation_shows_success_message_below_button(
     client: TestClient,
     seeded_users: dict[UserRole, User],
     db_session: Session,
 ) -> None:
-    """Verify the calendar refresh includes an appointment success message."""
+    """Verify HTMX refresh emits the event for feedback below the form button."""
 
     patient = seed_patient(db_session, seeded_users[UserRole.CLINIC_ADMIN])
     appointment_type = seed_type(db_session, seeded_users[UserRole.CLINIC_ADMIN])
@@ -253,7 +255,11 @@ def test_htmx_appointment_creation_shows_success_message(
     )
 
     assert response.status_code == 200
-    assert "Appointment added successfully." in response.text
+    assert response.headers.get("HX-Trigger") == "appointmentAdded"
+    assert "Appointment added successfully." not in response.text
+    schedule = client.get("/schedule")
+    feedback_position = schedule.text.index('id="appointment-add-feedback"')
+    assert schedule.text.index("Add to schedule") < feedback_position
 
 
 def test_each_appointment_type_can_create_edit_and_cancel_an_appointment(

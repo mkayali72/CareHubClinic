@@ -476,7 +476,7 @@ def create_appointment_route(
         )
         if existing is not None:
             if request.headers.get("HX-Request") == "true":
-                return templates.TemplateResponse(
+                response = templates.TemplateResponse(
                     request=request,
                     name="schedule/partials/calendar.html",
                     context=_schedule_context(
@@ -487,10 +487,12 @@ def create_appointment_route(
                         view_mode=render_view,
                     ),
                 )
+                response.headers["HX-Trigger"] = "appointmentAdded"
+                return response
             return RedirectResponse(
                 url=(
                     f"/schedule?date={existing.scheduled_at.date().isoformat()}"
-                    f"&view={render_view}"
+                    f"&view={render_view}&saved=appointment-added"
                 ),
                 status_code=303,
             )
@@ -511,7 +513,7 @@ def create_appointment_route(
         db.rollback()
         _raise_service_error(error)
     if request.headers.get("HX-Request") == "true":
-        return templates.TemplateResponse(
+        response = templates.TemplateResponse(
             request=request,
             name="schedule/partials/calendar.html",
             context=_schedule_context(
@@ -520,9 +522,10 @@ def create_appointment_route(
                 current_user,
                 render_date,
                 view_mode=render_view,
-                success_message="Appointment added successfully.",
             ),
         )
+        response.headers["HX-Trigger"] = "appointmentAdded"
+        return response
     return RedirectResponse(
         url=(
             f"/schedule?date={parsed_scheduled_at.date().isoformat()}"

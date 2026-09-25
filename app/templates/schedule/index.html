@@ -88,6 +88,7 @@
                   </label>
                 </div>
                 <button class="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700" type="submit" data-submit-button>Add to schedule</button>
+                <div id="appointment-add-feedback" class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800" role="status" aria-live="polite" {% if not success_message %}hidden{% endif %}>{{ success_message }}</div>
                 <p id="appointment-submit-status" class="htmx-indicator text-sm text-slate-500" data-submit-status role="status" aria-live="polite">Saving appointment…</p>
               </form>
             {% else %}
@@ -146,6 +147,19 @@
         if (doctorSelect && slot.dataset.doctorId) doctorSelect.value = slot.dataset.doctorId;
         form.scrollIntoView({ behavior: "smooth", block: "center" });
         form.querySelector('[name="patient_id"]')?.focus({ preventScroll: true });
+      });
+      document.body.addEventListener("appointmentAdded", function () {
+        const feedback = document.getElementById("appointment-add-feedback");
+        if (!feedback) return;
+        feedback.textContent = "Appointment added successfully.";
+        feedback.hidden = false;
+      });
+      document.body.addEventListener("htmx:beforeRequest", function (event) {
+        if (event.detail.elt?.id !== "appointment-booking-form") return;
+        const feedback = document.getElementById("appointment-add-feedback");
+        if (!feedback) return;
+        feedback.textContent = "";
+        feedback.hidden = true;
       });
     </script>
   {% endif %}
