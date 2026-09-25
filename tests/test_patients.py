@@ -181,6 +181,42 @@ def test_patient_search_treats_underscores_literally_and_shows_patient_number(
     assert "Sample_Patient_1" in detail_response.text
 
 
+def test_patient_visit_history_tab_shows_saved_visits(
+    client: TestClient,
+    seeded_users: dict[UserRole, User],
+    db_session: Session,
+) -> None:
+    """Verify saved clinical visits render in the patient detail history tab."""
+
+    physician = seeded_users[UserRole.PHYSICIAN]
+    patient = seed_patient(db_session, physician)
+    visit = create_visit(
+        db_session,
+        physician,
+        patient.id,
+        VisitType.PROBLEM_FOCUSED,
+        None,
+        {"blood_pressure": "120/80"},
+        None,
+        None,
+        "Follow-up for pelvic pain",
+        "Symptoms improving",
+        "Continue current plan",
+        [],
+    )
+    db_session.commit()
+    login_as(client, physician)
+
+    response = client.get(f"/patients/{patient.id}?tab=visits")
+
+    assert response.status_code == 200
+    assert "Saved visits" in response.text
+    assert "Problem Focused" in response.text
+    assert "Symptoms improving" in response.text
+    assert f"/visits/{visit.id}" in response.text
+    assert "Coming soon" not in response.text
+
+
 def test_patient_labs_tab_shows_orders_and_replaces_placeholder(
     client: TestClient,
     seeded_users: dict[UserRole, User],

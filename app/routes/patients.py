@@ -15,7 +15,7 @@ from app.models import LabOrder, LabResult, Patient, User, UserRole
 from app.services.audit import soft_delete_record
 from app.services.auth import require_roles
 from app.services.billing import get_patient_invoices
-from app.services.clinical import CLINICAL_ROLES
+from app.services.clinical import CLINICAL_ROLES, get_patient_visits
 from app.services.patients import (
     PATIENT_ROLES,
     build_patient_payload,
@@ -240,6 +240,12 @@ def _detail_context(
     if active_tab == "billing" and not patient.clinic.billing_module_enabled:
         active_tab = "summary"
     billing_enabled = patient.clinic.billing_module_enabled
+    can_view_visits = current_user.role in CLINICAL_ROLES
+    patient_visits = (
+        get_patient_visits(db, current_user, patient.id)
+        if active_tab == "visits" and can_view_visits
+        else []
+    )
     can_view_labs = current_user.role in CLINICAL_ROLES
     patient_lab_orders = (
         list(
@@ -274,6 +280,8 @@ def _detail_context(
         "can_view_sensitive": can_view_clinical_patient_fields(current_user),
         "can_delete": current_user.role is UserRole.CLINIC_ADMIN,
         "billing_enabled": billing_enabled,
+        "can_view_visits": can_view_visits,
+        "patient_visits": patient_visits,
         "can_view_labs": can_view_labs,
         "patient_lab_orders": patient_lab_orders,
         "can_operate_billing": current_user.role
