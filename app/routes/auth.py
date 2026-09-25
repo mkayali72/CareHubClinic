@@ -80,7 +80,7 @@ def login(
                 request=request,
                 name="partials/login_feedback.html",
                 context={"error": "Username or password is incorrect."},
-                status_code=401,
+                status_code=200,
             )
         return templates.TemplateResponse(
             request=request,

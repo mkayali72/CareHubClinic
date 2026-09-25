@@ -116,6 +116,34 @@ def test_2_authentication_and_admin_role_guards(
     assert client.get("/welcome").status_code == 200
 
 
+@pytest.mark.parametrize("use_htmx", [False, True])
+@pytest.mark.parametrize("wrong_field", ["username", "password"])
+def test_failed_login_shows_generic_credentials_message(
+    client: TestClient,
+    seeded_users: dict[UserRole, User],
+    use_htmx: bool,
+    wrong_field: str,
+) -> None:
+    """Invalid usernames and passwords show the same accessible error."""
+
+    user = seeded_users[UserRole.FRONT_DESK]
+    username = "unknown_user" if wrong_field == "username" else user.username
+    password = "Wrong-Password1" if wrong_field == "password" else "Valid-Test-Password1"
+    headers = {"HX-Request": "true"} if use_htmx else {}
+
+    response = client.post(
+        "/login",
+        data={"username": username, "password": password},
+        headers=headers,
+        follow_redirects=False,
+    )
+
+    assert response.status_code == (200 if use_htmx else 401)
+    assert "Username or password is incorrect." in response.text
+    assert 'role="alert"' in response.text
+    assert client.get("/welcome", follow_redirects=False).headers["location"] == "/login"
+
+
 def test_8_session_expires_after_configured_timeout(
     short_lived_client: TestClient,
     seeded_users: dict[UserRole, User],
