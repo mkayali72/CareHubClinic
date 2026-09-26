@@ -8,6 +8,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -25,8 +26,10 @@ from app.services.auth import require_roles
 from app.services.clinical import CLINICAL_ROLES, prenatal_follow_up_recommendation
 from app.services.scheduling import (
     APPOINTMENT_TYPE_ADMIN_ROLES,
+    APPOINTMENT_OVERLAP_MESSAGE,
     SCHEDULING_ROLES,
     SCHEDULING_WRITE_ROLES,
+    AppointmentConflictError,
     advance_appointment_status,
     calendar_columns,
     cancel_appointment,
@@ -39,6 +42,7 @@ from app.services.scheduling import (
     get_appointments_for_range,
     get_physicians,
     get_schedulable_patients,
+    is_appointment_slot_available,
     serialize_appointment,
     update_appointment,
     update_appointment_type,
@@ -158,6 +162,66 @@ def _raise_service_error(error: ValueError | PermissionError) -> None:
     raise HTTPException(status_code=422, detail=str(error)) from error
 
 
+def _parse_duration_override(value: str | None) -> int | None:
+    """Parse the optional form override, allowing blank or zero to use defaults."""
+
+    if value is None or not value.strip():
+        return None
+    try:
+        duration = int(value)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=422,
+            detail="Appointment duration must be a whole number of minutes.",
+        ) from error
+    if duration < 0:
+        raise HTTPException(
+            status_code=422,
+            detail="Appointment duration must be greater than zero.",
+        )
+    return duration or None
+
+
+def _is_appointment_overlap_integrity_error(error: IntegrityError) -> bool:
+    """Identify a database rejection from the appointment overlap constraint."""
+
+    diagnostic = getattr(error.orig, "diag", None)
+    if (
+        getattr(diagnostic, "constraint_name", None)
+        == "ex_appointments_doctor_overlap"
+    ):
+        return True
+    return "ex_appointments_doctor_overlap" in str(error.orig)
+
+
+def _appointment_conflict_response(
+    request: Request,
+    selected_date: date,
+    view_mode: str,
+) -> Response:
+    """Show a conflict inline for HTMX or return to the schedule with a message."""
+
+    if request.headers.get("HX-Request") == "true":
+        response = templates.TemplateResponse(
+            request=request,
+            name="schedule/partials/appointment_conflict.html",
+            context={
+                "request": request,
+                "conflict_message": APPOINTMENT_OVERLAP_MESSAGE,
+            },
+        )
+        response.headers["HX-Retarget"] = "#appointment-add-feedback"
+        response.headers["HX-Reswap"] = "outerHTML"
+        return response
+    return RedirectResponse(
+        url=(
+            f"/schedule?date={selected_date.isoformat()}"
+            f"&view={view_mode}&conflict=overlap"
+        ),
+        status_code=303,
+    )
+
+
 def _queue_doctor_id(user: User) -> int | None:
     """Return the physician's own queue filter, or None for clinic-wide views."""
 
@@ -195,6 +259,7 @@ def _schedule_context(
     patient_id: int | None = None,
     view_mode: str = "day",
     success_message: str = "",
+    appointment_error_message: str = "",
 ) -> dict[str, Any]:
     """Build shared calendar and queue context for one schedule view."""
 
@@ -262,6 +327,7 @@ def _schedule_context(
         "selected_patient_id": patient_id,
         "follow_up_recommendation": follow_up_recommendation,
         "success_message": success_message,
+        "appointment_error_message": appointment_error_message,
     }
 
 
@@ -330,6 +396,7 @@ def schedule_page(
     patient_id: int | None = Query(default=None),
     view: str | None = Query(default="day"),
     saved: str | None = Query(default=None),
+    conflict: str | None = Query(default=None),
     current_user: User = Depends(require_roles(*SCHEDULING_ROLES)),
     db: Session = Depends(get_db),
 ) -> Response:
@@ -349,6 +416,9 @@ def schedule_page(
                 "Appointment added successfully."
                 if saved == "appointment-added"
                 else ""
+            ),
+            appointment_error_message=(
+                APPOINTMENT_OVERLAP_MESSAGE if conflict == "overlap" else ""
             ),
         ),
     )
@@ -443,6 +513,41 @@ def appointment_api_list(
     )
 
 
+@router.get("/schedule/appointments/availability", response_class=HTMLResponse)
+def appointment_availability_route(
+    request: Request,
+    doctor_id: int = Query(...),
+    appointment_type_id: int = Query(...),
+    scheduled_at: str = Query(...),
+    duration_minutes: str = Query(default=""),
+    current_user: User = Depends(require_roles(*SCHEDULING_WRITE_ROLES)),
+    db: Session = Depends(get_db),
+) -> Response:
+    """Return a UI status for the currently selected physician and time."""
+
+    try:
+        is_available = is_appointment_slot_available(
+            db=db,
+            clinic_id=current_user.clinic_id,
+            doctor_id=doctor_id,
+            appointment_type_id=appointment_type_id,
+            scheduled_at=parse_scheduled_at(scheduled_at),
+            duration_minutes=_parse_duration_override(duration_minutes),
+        )
+    except (PermissionError, ValueError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+    return templates.TemplateResponse(
+        request=request,
+        name="schedule/partials/appointment_availability.html",
+        context={
+            "request": request,
+            "is_available": is_available,
+            "conflict_message": APPOINTMENT_OVERLAP_MESSAGE,
+        },
+    )
+
+
 @router.post("/schedule/appointments", response_class=HTMLResponse)
 def create_appointment_route(
     request: Request,
@@ -450,7 +555,7 @@ def create_appointment_route(
     doctor_id: int = Form(...),
     appointment_type_id: int = Form(...),
     scheduled_at: str = Form(...),
-    duration_minutes: int = Form(0),
+    duration_minutes: str = Form(default=""),
     client_request_id: str | None = Form(default=None),
     selected_date: str | None = Query(default=None, alias="date"),
     view: str | None = Query(default="day"),
@@ -505,10 +610,18 @@ def create_appointment_route(
             doctor_id=doctor_id,
             appointment_type_id=appointment_type_id,
             scheduled_at=parsed_scheduled_at,
-            duration_minutes=duration_minutes or None,
+            duration_minutes=_parse_duration_override(duration_minutes),
             client_request_id=client_request_id,
         )
         db.commit()
+    except AppointmentConflictError:
+        db.rollback()
+        return _appointment_conflict_response(request, render_date, render_view)
+    except IntegrityError as error:
+        db.rollback()
+        if _is_appointment_overlap_integrity_error(error):
+            return _appointment_conflict_response(request, render_date, render_view)
+        raise
     except (PermissionError, ValueError) as error:
         db.rollback()
         _raise_service_error(error)
@@ -593,7 +706,7 @@ def edit_appointment_route(
     doctor_id: int = Form(...),
     appointment_type_id: int = Form(...),
     scheduled_at: str = Form(...),
-    duration_minutes: int = Form(0),
+    duration_minutes: str = Form(default=""),
     current_user: User = Depends(require_roles(*SCHEDULING_WRITE_ROLES)),
     db: Session = Depends(get_db),
 ) -> Response:
@@ -611,9 +724,20 @@ def edit_appointment_route(
             doctor_id=doctor_id,
             appointment_type_id=appointment_type_id,
             scheduled_at=parse_scheduled_at(scheduled_at),
-            duration_minutes=duration_minutes or None,
+            duration_minutes=_parse_duration_override(duration_minutes),
         )
         db.commit()
+    except AppointmentConflictError as error:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except IntegrityError as error:
+        db.rollback()
+        if _is_appointment_overlap_integrity_error(error):
+            raise HTTPException(
+                status_code=409,
+                detail=APPOINTMENT_OVERLAP_MESSAGE,
+            ) from error
+        raise
     except (PermissionError, ValueError) as error:
         db.rollback()
         _raise_service_error(error)

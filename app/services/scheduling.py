@@ -4,7 +4,7 @@ from collections.abc import Iterable
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, literal_column, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import (
@@ -34,6 +34,14 @@ APPOINTMENT_TYPE_ADMIN_ROLES = (UserRole.CLINIC_ADMIN,)
 CALENDAR_START_HOUR = 7
 CALENDAR_END_HOUR = 19
 CALENDAR_MINUTES = (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * 60
+APPOINTMENT_OVERLAP_MESSAGE = (
+    "This physician already has an appointment during the selected time. "
+    "Choose another time, duration, or physician."
+)
+
+
+class AppointmentConflictError(ValueError):
+    """Raised when a physician is already booked during an appointment slot."""
 
 STATUS_TRANSITIONS: dict[AppointmentStatus, AppointmentStatus] = {
     AppointmentStatus.SCHEDULED: AppointmentStatus.CHECKED_IN,
@@ -154,6 +162,7 @@ def validate_appointment_inputs(
     appointment_type_id: int,
     scheduled_at: datetime,
     duration_minutes: int | None,
+    exclude_appointment_id: int | None = None,
 ) -> tuple[Patient, User, AppointmentType, int]:
     """Validate cross-tenant references and resolve appointment duration."""
 
@@ -169,7 +178,97 @@ def validate_appointment_inputs(
     resolved_duration = duration_minutes or appointment_type.default_duration_minutes
     if resolved_duration <= 0:
         raise ValueError("Appointment duration must be greater than zero.")
+    if _appointment_overlap_exists(
+        db,
+        clinic_id,
+        doctor.id,
+        scheduled_at,
+        resolved_duration,
+        exclude_appointment_id=exclude_appointment_id,
+    ):
+        raise AppointmentConflictError(APPOINTMENT_OVERLAP_MESSAGE)
     return patient, doctor, appointment_type, resolved_duration
+
+
+def _appointment_overlap_exists(
+    db: Session,
+    clinic_id: int,
+    doctor_id: int,
+    scheduled_at: datetime,
+    duration_minutes: int,
+    exclude_appointment_id: int | None = None,
+) -> bool:
+    """Check active appointments using half-open time intervals."""
+
+    proposed_end = scheduled_at + timedelta(minutes=duration_minutes)
+    statement = select(Appointment.id).where(
+        Appointment.clinic_id == clinic_id,
+        Appointment.doctor_id == doctor_id,
+        Appointment.deleted_at.is_(None),
+        Appointment.status.notin_(
+            (
+                AppointmentStatus.DONE,
+                AppointmentStatus.CANCELLED,
+                AppointmentStatus.NO_SHOW,
+            )
+        ),
+        Appointment.scheduled_at < proposed_end,
+    )
+    if exclude_appointment_id is not None:
+        statement = statement.where(Appointment.id != exclude_appointment_id)
+
+    dialect_name = db.get_bind().dialect.name
+    if dialect_name == "postgresql":
+        existing_end = Appointment.scheduled_at + (
+            Appointment.duration_minutes * literal_column("INTERVAL '1 minute'")
+        )
+        statement = statement.where(existing_end > scheduled_at)
+        return db.scalar(statement.limit(1)) is not None
+
+    if dialect_name == "sqlite":
+        existing_end = func.datetime(
+            Appointment.scheduled_at,
+            func.printf("+%d minutes", Appointment.duration_minutes),
+        )
+        statement = statement.where(
+            func.julianday(existing_end) > func.julianday(scheduled_at)
+        )
+        return db.scalar(statement.limit(1)) is not None
+
+    for appointment_id in db.scalars(statement):
+        appointment = db.get(Appointment, appointment_id)
+        if (
+            appointment is not None
+            and appointment.scheduled_at
+            + timedelta(minutes=appointment.duration_minutes)
+            > scheduled_at
+        ):
+            return True
+    return False
+
+
+def is_appointment_slot_available(
+    db: Session,
+    clinic_id: int,
+    doctor_id: int,
+    appointment_type_id: int,
+    scheduled_at: datetime,
+    duration_minutes: int | None = None,
+) -> bool:
+    """Validate a requested slot and report whether the physician is free."""
+
+    doctor = _clinic_physician(db, clinic_id, doctor_id)
+    appointment_type = _clinic_appointment_type(db, clinic_id, appointment_type_id)
+    resolved_duration = duration_minutes or appointment_type.default_duration_minutes
+    if resolved_duration <= 0:
+        raise ValueError("Appointment duration must be greater than zero.")
+    return not _appointment_overlap_exists(
+        db,
+        clinic_id,
+        doctor.id,
+        scheduled_at,
+        resolved_duration,
+    )
 
 
 def create_appointment(
@@ -361,6 +460,7 @@ def update_appointment(
         appointment_type_id,
         scheduled_at,
         duration_minutes,
+        exclude_appointment_id=appointment.id,
     )
     changed_fields: list[str] = []
     if appointment.patient_id != patient.id:

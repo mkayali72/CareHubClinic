@@ -1,0 +1,5 @@
+{% if is_available %}
+  <p data-appointment-available="true" class="text-sm text-slate-500">This time is available.</p>
+{% else %}
+  <p data-appointment-available="false" class="text-sm font-semibold text-rose-700">{{ conflict_message }}</p>
+{% endif %}

@@ -9,3 +9,4 @@
 - [Staff account management boundaries](staff-account-management.md) — keep clinic-admin authorization in dedicated staff operations, not the generic user factory.
 - [Phone input validation](phone-input-validation.md) — preserve conventional international formatting while validating that phone content is numeric.
 - [Sample data lifecycle](sample-data-lifecycle.md) — first-run demo records are registry-tracked and removed through auditable soft deletion.
+- [Alembic offline SQL generation](alembic-offline-sql.md) — a legacy data-dependent revision prevents rendering the full migration chain offline; validate later revisions independently.

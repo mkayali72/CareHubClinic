@@ -70,25 +70,28 @@
                   </select>
                 </label>
                 <label class="block text-sm font-medium text-slate-700">Physician
-                  <select class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" name="doctor_id" required>
+                  <select class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" name="doctor_id" required hx-get="/schedule/appointments/availability" hx-trigger="load, change" hx-include="#appointment-booking-form" hx-target="#appointment-availability-feedback" hx-swap="innerHTML" hx-sync="#appointment-booking-form:replace" data-availability-check>
                     {% for doctor in doctors %}<option value="{{ doctor.id }}">{{ doctor.full_name }}</option>{% endfor %}
                   </select>
                 </label>
                 <label class="block text-sm font-medium text-slate-700">Appointment type
-                  <select class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" name="appointment_type_id" required>
+                  <select class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" name="appointment_type_id" required hx-get="/schedule/appointments/availability" hx-trigger="change" hx-include="#appointment-booking-form" hx-target="#appointment-availability-feedback" hx-swap="innerHTML" hx-sync="#appointment-booking-form:replace" data-availability-check>
                     {% for appointment_type in appointment_types %}<option value="{{ appointment_type.id }}">{{ appointment_type.name }} · {{ appointment_type.default_duration_minutes }} min</option>{% endfor %}
                   </select>
                 </label>
                 <div class="grid gap-4 sm:grid-cols-2">
                   <label class="block text-sm font-medium text-slate-700">Scheduled time
-                    <input id="appointment-scheduled-at" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" type="datetime-local" name="scheduled_at" value="{{ selected_date.isoformat() }}T09:00" required />
+                    <input id="appointment-scheduled-at" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" type="datetime-local" name="scheduled_at" value="{{ selected_date.isoformat() }}T09:00" required hx-get="/schedule/appointments/availability" hx-trigger="change" hx-include="#appointment-booking-form" hx-target="#appointment-availability-feedback" hx-swap="innerHTML" hx-sync="#appointment-booking-form:replace" data-availability-check />
                   </label>
                   <label class="block text-sm font-medium text-slate-700">Duration override
-                    <input class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" type="number" name="duration_minutes" min="1" placeholder="Use type default" />
+                    <input class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" type="number" name="duration_minutes" min="1" placeholder="Use type default" hx-get="/schedule/appointments/availability" hx-trigger="change" hx-include="#appointment-booking-form" hx-target="#appointment-availability-feedback" hx-swap="innerHTML" hx-sync="#appointment-booking-form:replace" data-availability-check />
                   </label>
                 </div>
-                <button class="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700" type="submit" data-submit-button>Add to schedule</button>
-                <div id="appointment-add-feedback" class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800" role="status" aria-live="polite" {% if not success_message %}hidden{% endif %}>{{ success_message }}</div>
+                <div id="appointment-availability-feedback" class="min-h-5" role="status" aria-live="polite">
+                  <p class="text-sm text-slate-500">Checking physician availability…</p>
+                </div>
+                <button class="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50" type="submit" data-submit-button disabled>Add to schedule</button>
+                <div id="appointment-add-feedback" class="{% if appointment_error_message %}rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800{% else %}rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800{% endif %}" role="status" aria-live="polite" {% if not success_message and not appointment_error_message %}hidden{% endif %}>{{ appointment_error_message or success_message }}</div>
                 <p id="appointment-submit-status" class="htmx-indicator text-sm text-slate-500" data-submit-status role="status" aria-live="polite">Saving appointment…</p>
               </form>
             {% else %}
@@ -145,21 +148,58 @@
         scheduledAt.value = slot.dataset.scheduledAt;
         const doctorSelect = form.querySelector('[name="doctor_id"]');
         if (doctorSelect && slot.dataset.doctorId) doctorSelect.value = slot.dataset.doctorId;
+        scheduledAt.dispatchEvent(new Event("change", { bubbles: true }));
         form.scrollIntoView({ behavior: "smooth", block: "center" });
         form.querySelector('[name="patient_id"]')?.focus({ preventScroll: true });
       });
       document.body.addEventListener("appointmentAdded", function () {
         const feedback = document.getElementById("appointment-add-feedback");
-        if (!feedback) return;
+        const submitButton = document.querySelector("#appointment-booking-form [data-submit-button]");
+        const availability = document.getElementById("appointment-availability-feedback");
+        if (!feedback || !submitButton || !availability) return;
         feedback.textContent = "Appointment added successfully.";
+        feedback.className = "rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800";
         feedback.hidden = false;
+        submitButton.disabled = true;
+        availability.innerHTML = '<p class="text-sm font-semibold text-rose-700">This time is now booked. Choose another slot to continue.</p>';
+      });
+      document.body.addEventListener("change", function (event) {
+        if (!event.target.closest("#appointment-booking-form")) return;
+        const feedback = document.getElementById("appointment-add-feedback");
+        const submitButton = document.querySelector("#appointment-booking-form [data-submit-button]");
+        const availability = document.getElementById("appointment-availability-feedback");
+        if (event.target.matches("[data-availability-check]")) {
+          if (submitButton) submitButton.disabled = true;
+          if (availability) availability.innerHTML = '<p class="text-sm text-slate-500">Checking physician availability…</p>';
+        }
+        if (feedback) {
+          feedback.textContent = "";
+          feedback.hidden = true;
+        }
       });
       document.body.addEventListener("htmx:beforeRequest", function (event) {
-        if (event.detail.elt?.id !== "appointment-booking-form") return;
+        const element = event.detail.elt;
+        if (element?.hasAttribute("data-availability-check")) {
+          const submitButton = document.querySelector("#appointment-booking-form [data-submit-button]");
+          if (submitButton) submitButton.disabled = true;
+          const availability = document.getElementById("appointment-availability-feedback");
+          if (availability) availability.innerHTML = '<p class="text-sm text-slate-500">Checking physician availability…</p>';
+        } else if (element?.id !== "appointment-booking-form") {
+          return;
+        }
         const feedback = document.getElementById("appointment-add-feedback");
-        if (!feedback) return;
-        feedback.textContent = "";
-        feedback.hidden = true;
+        if (feedback) {
+          feedback.textContent = "";
+          feedback.hidden = true;
+        }
+      });
+      document.body.addEventListener("htmx:afterSwap", function (event) {
+        const target = event.detail.target;
+        if (!target || !["appointment-availability-feedback", "appointment-add-feedback"].includes(target.id)) return;
+        const availability = target.querySelector("[data-appointment-available]");
+        if (!availability) return;
+        const submitButton = document.querySelector("#appointment-booking-form [data-submit-button]");
+        if (submitButton) submitButton.disabled = availability.dataset.appointmentAvailable !== "true";
       });
     </script>
   {% endif %}

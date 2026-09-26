@@ -27,7 +27,9 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    literal_column,
 )
+from sqlalchemy.dialects.postgresql import ExcludeConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, SoftDeleteMixin
@@ -699,6 +701,22 @@ class Appointment(SoftDeleteMixin, Base):
             "client_request_id",
             name="uq_appointments_clinic_client_request_id",
         ),
+        ExcludeConstraint(
+            ("doctor_id", "="),
+            (
+                literal_column(
+                    "tsrange(scheduled_at, scheduled_at + "
+                    "duration_minutes * INTERVAL '1 minute', '[)')"
+                ),
+                "&&",
+            ),
+            where=literal_column(
+                "deleted_at IS NULL "
+                "AND status NOT IN ('done', 'cancelled', 'no_show')"
+            ),
+            using="gist",
+            name="ex_appointments_doctor_overlap",
+        ).ddl_if(dialect="postgresql"),
     )
 
     id: Mapped[int] = mapped_column(

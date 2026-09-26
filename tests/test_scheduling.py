@@ -3,7 +3,10 @@
 from datetime import date, datetime
 from fastapi.testclient import TestClient
 from sqlalchemy import select
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.dialects.postgresql import ExcludeConstraint
 from sqlalchemy.orm import Session
+from sqlalchemy.schema import CreateTable
 
 from app.models import (
     Appointment,
@@ -18,6 +21,7 @@ from app.models import (
 )
 from app.services.auth import create_user
 from app.services.patients import create_patient
+from app.services.scheduling import APPOINTMENT_OVERLAP_MESSAGE
 
 
 def login_as(client: TestClient, user: User) -> None:
@@ -103,6 +107,23 @@ def test_appointment_status_values_preserve_required_order() -> None:
         "cancelled",
         "no_show",
     ]
+
+
+def test_postgres_appointment_schema_blocks_overlapping_doctor_slots() -> None:
+    """Verify PostgreSQL table DDL carries the overlap exclusion constraint."""
+
+    constraint = next(
+        (
+            item
+            for item in Appointment.__table__.constraints
+            if isinstance(item, ExcludeConstraint)
+        ),
+        None,
+    )
+    assert constraint is not None
+    ddl = str(CreateTable(Appointment.__table__).compile(dialect=postgresql.dialect()))
+    assert "EXCLUDE USING gist" in ddl
+    assert "ex_appointments_doctor_overlap" in ddl
 
 
 def test_scheduling_is_available_to_clinical_front_desk_roles_not_billing(
@@ -328,17 +349,12 @@ def test_each_appointment_type_can_create_edit_and_cancel_an_appointment(
         assert appointment.appointment_type_id == appointment_type.id
 
 
-def test_overlapping_same_doctor_appointments_are_allowed_by_current_policy(
+def test_overlapping_same_doctor_appointments_are_blocked_in_ui_and_routes(
     client: TestClient,
     seeded_users: dict[UserRole, User],
     db_session: Session,
 ) -> None:
-    """Assert the current behavior: overlaps are allowed, not blocked.
-
-    The scheduling schema currently has no room field and no overlap constraint,
-    so this test intentionally locks in the existing allow behavior until a
-    room-allocation decision is made.
-    """
+    """Reject overlapping slots while allowing appointments that touch at an edge."""
 
     patient_one = seed_patient(db_session, seeded_users[UserRole.CLINIC_ADMIN], "Overlap One")
     patient_two = seed_patient(db_session, seeded_users[UserRole.CLINIC_ADMIN], "Overlap Two")
@@ -357,6 +373,25 @@ def test_overlapping_same_doctor_appointments_are_allowed_by_current_policy(
         },
         follow_redirects=False,
     )
+    assert first.status_code == 303
+
+    schedule_page = client.get("/schedule")
+    assert 'hx-get="/schedule/appointments/availability"' in schedule_page.text
+    assert 'data-submit-button disabled' in schedule_page.text
+
+    availability = client.get(
+        "/schedule/appointments/availability",
+        params={
+            "doctor_id": shared_doctor,
+            "appointment_type_id": appointment_type.id,
+            "scheduled_at": f"{date.today().isoformat()}T09:30",
+            "duration_minutes": "30",
+        },
+    )
+    assert availability.status_code == 200
+    assert 'data-appointment-available="false"' in availability.text
+    assert "already has an appointment" in availability.text
+
     second = client.post(
         "/schedule/appointments",
         data={
@@ -368,16 +403,81 @@ def test_overlapping_same_doctor_appointments_are_allowed_by_current_policy(
         },
         follow_redirects=False,
     )
-
-    assert first.status_code == 303
     assert second.status_code == 303
-    overlapping = list(
+    assert "conflict=overlap" in second.headers["location"]
+    conflict_page = client.get(second.headers["location"])
+    assert APPOINTMENT_OVERLAP_MESSAGE in conflict_page.text
+
+    htmx_conflict = client.post(
+        "/schedule/appointments",
+        data={
+            "patient_id": patient_two.id,
+            "doctor_id": shared_doctor,
+            "appointment_type_id": appointment_type.id,
+            "scheduled_at": f"{date.today().isoformat()}T09:00",
+            "duration_minutes": "30",
+        },
+        headers={"HX-Request": "true"},
+    )
+    assert htmx_conflict.status_code == 200
+    assert htmx_conflict.headers["HX-Retarget"] == "#appointment-add-feedback"
+    assert htmx_conflict.headers["HX-Reswap"] == "outerHTML"
+    assert APPOINTMENT_OVERLAP_MESSAGE in htmx_conflict.text
+
+    adjacent = client.post(
+        "/schedule/appointments",
+        data={
+            "patient_id": patient_two.id,
+            "doctor_id": shared_doctor,
+            "appointment_type_id": appointment_type.id,
+            "scheduled_at": f"{date.today().isoformat()}T10:00",
+            "duration_minutes": "",
+        },
+        follow_redirects=False,
+    )
+    assert adjacent.status_code == 303
+
+    appointments = list(
         db_session.scalars(
-            select(Appointment).where(Appointment.doctor_id == shared_doctor)
+            select(Appointment)
+            .where(Appointment.doctor_id == shared_doctor)
+            .order_by(Appointment.scheduled_at)
         )
     )
-    assert len(overlapping) == 2
-    assert {appointment.scheduled_at.hour for appointment in overlapping} == {9}
+    assert len(appointments) == 2
+    assert [appointment.scheduled_at.hour for appointment in appointments] == [9, 10]
+
+    edit_conflict = client.post(
+        f"/schedule/appointments/{appointments[0].id}/edit",
+        data={
+            "patient_id": appointments[0].patient_id,
+            "doctor_id": shared_doctor,
+            "appointment_type_id": appointment_type.id,
+            "scheduled_at": f"{date.today().isoformat()}T09:30",
+            "duration_minutes": "60",
+        },
+        follow_redirects=False,
+    )
+    assert edit_conflict.status_code == 409
+    db_session.refresh(appointments[0])
+    assert appointments[0].scheduled_at.hour == 9
+
+    cancel_response = client.post(
+        f"/schedule/appointments/{appointments[0].id}/cancel",
+        follow_redirects=False,
+    )
+    assert cancel_response.status_code == 303
+    replacement = client.post(
+        "/schedule/appointments",
+        data={
+            "patient_id": patient_two.id,
+            "doctor_id": shared_doctor,
+            "appointment_type_id": appointment_type.id,
+            "scheduled_at": f"{date.today().isoformat()}T09:00",
+        },
+        follow_redirects=False,
+    )
+    assert replacement.status_code == 303
 
 
 def test_only_front_desk_or_admin_can_create_appointment_routes(
