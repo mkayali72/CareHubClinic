@@ -513,10 +513,17 @@ def create_patient_route(
     )
     patient = create_patient(db, current_user.clinic_id, current_user, payload)
     db.commit()
+    form_context = _patient_form_context(request, current_user, None, "/patients")
+    form_context.update(
+        {
+            "success_message": "A new patient record has been created successfully.",
+            "created_patient": patient,
+        }
+    )
     response = templates.TemplateResponse(
         request=request,
-        name="patients/partials/create_success.html",
-        context={"request": request, "patient": patient},
+        name="patients/partials/form_container.html",
+        context=form_context,
     )
     response.headers["HX-Trigger"] = "patientsChanged"
     return response

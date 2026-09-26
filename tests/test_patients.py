@@ -430,8 +430,12 @@ def test_patient_create_and_edit_forms_use_structured_entries(
 
     assert create_response.status_code == 200
     assert create_response.headers["HX-Trigger"] == "patientsChanged"
+    feedback_position = create_response.text.index('id="patient-create-feedback"')
+    assert create_response.text.index("Create patient") < feedback_position
+    assert "A new patient record has been created successfully." in create_response.text[feedback_position:]
     patient = db_session.scalar(select(Patient).where(Patient.name == "Lina Ali"))
     assert patient is not None
+    assert f'href="/patients/{patient.id}"' in create_response.text[feedback_position:]
     assert patient.allergies == [
         {"name": "Latex", "reaction": "Hives", "severity": "Mild"}
     ]
