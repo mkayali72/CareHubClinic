@@ -109,6 +109,26 @@ def test_appointment_status_values_preserve_required_order() -> None:
     ]
 
 
+def test_login_and_schedule_use_the_text_indicator_and_clinic_logo(
+    client: TestClient,
+    seeded_users: dict[UserRole, User],
+) -> None:
+    """Keep the requested text indicator and custom mark in both app shells."""
+
+    login_page = client.get("/login")
+    assert login_page.status_code == 200
+    assert ">T</span>" in login_page.text
+    assert "OC</div>" not in login_page.text
+    assert 'viewBox="0 0 40 40"' in login_page.text
+
+    login_as(client, seeded_users[UserRole.FRONT_DESK])
+    schedule_page = client.get("/schedule")
+    assert schedule_page.status_code == 200
+    assert ">T</span>" in schedule_page.text
+    assert "OC</div>" not in schedule_page.text
+    assert 'viewBox="0 0 40 40"' in schedule_page.text
+
+
 def test_postgres_appointment_schema_blocks_overlapping_doctor_slots() -> None:
     """Verify PostgreSQL table DDL carries the overlap exclusion constraint."""
 
